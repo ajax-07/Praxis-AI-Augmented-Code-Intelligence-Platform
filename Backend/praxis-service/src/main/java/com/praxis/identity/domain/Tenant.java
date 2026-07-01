@@ -1,5 +1,7 @@
 package com.praxis.identity.domain;
 
+
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

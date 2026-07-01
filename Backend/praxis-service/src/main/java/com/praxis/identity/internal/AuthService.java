@@ -6,6 +6,7 @@ import com.praxis.identity.api.dto.RegisterRequest;
 import com.praxis.identity.domain.Tenant;
 import com.praxis.identity.domain.User;
 import com.praxis.identity.domain.UserRole;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,24 +19,13 @@ import java.util.UUID;
  * email verification, no OAuth. Those are Phase 2.
  */
 @Service
+@RequiredArgsConstructor
 public class AuthService {
 
     private final TenantRepository tenantRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
-
-    public AuthService(
-            TenantRepository tenantRepository,
-            UserRepository userRepository,
-            PasswordEncoder passwordEncoder,
-            JwtService jwtService
-    ) {
-        this.tenantRepository = tenantRepository;
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.jwtService = jwtService;
-    }
 
     /**
      * Creates a new Tenant and its first User (always ADMIN of that tenant),
