@@ -1,0 +1,82 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '4.1.0'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.praxis'
+version = '0.0.1'
+java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
+
+ext {
+	springAiVersion   = '2.0.0-M4'  // Spring AI 2.0 GA not yet released; M-line is the Boot-4-compatible track
+	modulithVersion   = '2.1.0'     // Boot 4 line (Boot 3.5 used 1.4.x)
+	jjwtVersion       = '0.12.6'
+	javaparserVersion = '3.26.4'
+	jgitVersion       = '7.1.0.202411261347-r'
+}
+
+dependencyManagement {
+	imports {
+		mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
+		mavenBom "org.springframework.modulith:spring-modulith-bom:${modulithVersion}"
+	}
+}
+
+repositories {
+	mavenCentral()
+	maven { url 'https://repo.spring.io/milestone' } // required while Spring AI 2.0 is still milestone-only
+}
+
+dependencies {
+	// Web + API
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+	// Security + JWT
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
+	runtimeOnly    "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
+	runtimeOnly    "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
+
+	// Persistence
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-jdbc' // pgvector store needs this
+	implementation 'org.flywaydb:flyway-core'
+	implementation 'org.flywaydb:flyway-database-postgresql'
+	runtimeOnly    'org.postgresql:postgresql'
+
+	// Cache + job queue
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
+	// Modular monolith
+	implementation 'org.springframework.modulith:spring-modulith-starter-core'
+
+	// AI (Spring AI) — provider starters
+//	implementation 'org.springframework.ai:spring-ai-starter-model-openai'
+//	implementation 'org.springframework.ai:spring-ai-starter-model-google-genai'
+//	implementation 'org.springframework.ai:spring-ai-starter-model-anthropic'
+	implementation 'org.springframework.ai:spring-ai-starter-model-ollama'
+	implementation 'org.springframework.ai:spring-ai-starter-vector-store-pgvector' // Recall (Phase 2)
+
+	// Static analysis + repo fetch
+	implementation "com.github.javaparser:javaparser-symbol-solver-core:${javaparserVersion}"
+	implementation "org.eclipse.jgit:org.eclipse.jgit:${jgitVersion}"
+
+	// Resilience for LLM calls
+	implementation 'io.github.resilience4j:resilience4j-spring-boot3:2.2.0'
+
+	// Dev convenience
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+
+	// Tests
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.security:spring-security-test'
+	testImplementation 'org.springframework.modulith:spring-modulith-starter-test'
+	testImplementation 'org.testcontainers:junit-jupiter:1.20.4'
+	testImplementation 'org.testcontainers:postgresql:1.20.4'
+}
+
+tasks.named('test') { useJUnitPlatform() }

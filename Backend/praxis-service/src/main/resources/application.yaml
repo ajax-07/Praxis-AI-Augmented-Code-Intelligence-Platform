@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: praxis-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/praxis_db}
+    username: ${DB_USER:praxis_user}
+    password: ${DB_PASSWORD:ax8EHjuZU56aerhsfseDbpssdpr}
+  jpa:
+    hibernate.ddl-auto: update     # Flyway owns the schema, not Hibernate
+    open-in-view: false
+  flyway:
+    enabled: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  ai:
+    ollama:
+      base-url: ${OLLAMA_URL:http://localhost:11434}
+      chat.options.model: llama3.1
+    gemini:
+      api-key: ${GEMINI_API_KEY:}
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+    anthropic:
+      api-key: ${ANTHROPIC_API_KEY:}
+
+
+server:
+  port: 8145
+
+praxis:
+  jwt:
+    secret: ${JWT_SECRET:db826a2d080f0dc788d55208b8a7aadcada1243c5d844c7eefe1837578bfb361}
+    ttl-minutes: 60
+  analysis:
+    risk-threshold: 60
+    max-repo-size-mb: 200
+    max-files: 5000
