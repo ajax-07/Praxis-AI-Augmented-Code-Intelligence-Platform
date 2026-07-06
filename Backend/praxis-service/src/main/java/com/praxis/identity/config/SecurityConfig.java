@@ -1,4 +1,4 @@
-package com.praxis.identity;
+package com.praxis.identity.config;
 
 import com.praxis.identity.internal.JwtAuthFilter;
 import org.springframework.context.annotation.Bean;

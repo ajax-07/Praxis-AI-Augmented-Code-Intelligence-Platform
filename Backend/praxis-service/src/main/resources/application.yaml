@@ -29,6 +29,12 @@ spring:
 server:
   port: 8145
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
 praxis:
   jwt:
     secret: ${JWT_SECRET:db826a2d080f0dc788d55208b8a7aadcada1243c5d844c7eefe1837578bfb361}
@@ -37,3 +43,10 @@ praxis:
     risk-threshold: 60
     max-repo-size-mb: 200
     max-files: 5000
+  intake:
+    workspace-root: ${INTAKE_WORKSPACE_ROOT:/tmp/praxis-workspaces}
+    max-files: 5000
+    max-total-size-mb: 200
+    max-file-size-mb: 2
+    clone-timeout-seconds: 120
+    max-compression-ratio: 120
