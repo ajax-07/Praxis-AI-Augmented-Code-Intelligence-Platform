@@ -47,6 +47,7 @@ services:
   ollama:                       # optional local AI
     image: ollama/ollama
     container_name: parxis-ollama
+    ports: [ "11434:11434" ]    # host-run backend reaches it at localhost:11434
     volumes: [ "ollama:/root/.ollama" ]
 
 volumes: { pgdata: {}, redis_data: {}, ollama: {} }

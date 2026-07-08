@@ -76,3 +76,10 @@ package com.praxis.identity.api;
 ```
 
 to `identity/api/package-info.java`, so Modulith explicitly recognizes it as the sanctioned cross-module surface.
+
+
+---
+
+## SSE authentication note
+
+The browser `EventSource` API cannot set an `Authorization` header, so `JwtAuthFilter` also accepts the JWT as an `?access_token=` query parameter — but **only on the `/events` (SSE) route**, to avoid tokens leaking into unrelated request logs. All other endpoints require the standard `Authorization: Bearer <token>` header.

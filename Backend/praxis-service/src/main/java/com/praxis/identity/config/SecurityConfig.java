@@ -1,6 +1,7 @@
 package com.praxis.identity.config;
 
 import com.praxis.identity.internal.JwtAuthFilter;
+import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -28,6 +29,12 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // ASYNC: when an SseEmitter completes, the container re-dispatches the
+                        // request through this chain. JwtAuthFilter (OncePerRequestFilter) skips
+                        // async dispatches, so re-authorizing here would always deny a request
+                        // that already passed auth on its original REQUEST dispatch.
+                        // ERROR: same story for the container's /error page dispatch.
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()
                         .requestMatchers("/api/v1/auth/**", "/actuator/health").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)

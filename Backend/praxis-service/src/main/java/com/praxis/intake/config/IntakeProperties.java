@@ -2,6 +2,9 @@ package com.praxis.intake.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.nio.file.Path;
+import java.util.List;
+
 /**
  * The safety envelope for fetching untrusted code. Every limit here exists to
  * stop a malicious or accidentally-huge source from exhausting disk, memory,
@@ -12,6 +15,12 @@ public class IntakeProperties {
 
     /** Root directory under which each analysis gets its own workspace. */
     private String workspaceRoot = System.getProperty("java.io.tmpdir") + "/praxis-workspaces";
+
+    /** Extensions the upload endpoint accepts (lowercase, no dot). */
+    private List<String> allowedUploadExtensions = List.of("zip");
+
+    /** Staged uploads older than this are reclaimed by the janitor. */
+    private int uploadRetentionHours = 24;
 
     /** Reject a source whose extracted .java files exceed this count. */
     private int maxFiles = 5000;
@@ -33,6 +42,10 @@ public class IntakeProperties {
 
     public String getWorkspaceRoot() { return workspaceRoot; }
     public void setWorkspaceRoot(String workspaceRoot) { this.workspaceRoot = workspaceRoot; }
+    public List<String> getAllowedUploadExtensions() { return allowedUploadExtensions; }
+    public void setAllowedUploadExtensions(List<String> allowedUploadExtensions) { this.allowedUploadExtensions = allowedUploadExtensions; }
+    public int getUploadRetentionHours() { return uploadRetentionHours; }
+    public void setUploadRetentionHours(int uploadRetentionHours) { this.uploadRetentionHours = uploadRetentionHours; }
     public int getMaxFiles() { return maxFiles; }
     public void setMaxFiles(int maxFiles) { this.maxFiles = maxFiles; }
     public int getMaxTotalSizeMb() { return maxTotalSizeMb; }
@@ -46,4 +59,7 @@ public class IntakeProperties {
 
     public long maxTotalSizeBytes() { return (long) maxTotalSizeMb * 1024 * 1024; }
     public long maxFileSizeBytes() { return (long) maxFileSizeMb * 1024 * 1024; }
+
+    /** Staging area for uploads — underscore prefix keeps it clear of the per-analysis UUID dirs. */
+    public Path uploadRoot() { return Path.of(workspaceRoot, "_uploads"); }
 }

@@ -6,24 +6,33 @@ spring:
     username: ${DB_USER:praxis_user}
     password: ${DB_PASSWORD:ax8EHjuZU56aerhsfseDbpssdpr}
   jpa:
-    hibernate.ddl-auto: update     # Flyway owns the schema, not Hibernate
+    # Flyway owns the schema; Hibernate only verifies the entities match it.
+    # (With `update` here, Hibernate was silently creating the schema whenever
+    # Flyway didn't run — masking migration problems instead of surfacing them.)
+    hibernate.ddl-auto: validate
     open-in-view: false
   flyway:
     enabled: true
+  autoconfigure:
+    # No UserDetailsService is defined (auth is JWT + BCrypt in AuthService), so
+    # Boot would otherwise create an unused in-memory user and log a generated
+    # password on every start.
+    exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-  ai:
-    ollama:
-      base-url: ${OLLAMA_URL:http://localhost:11434}
-      chat.options.model: llama3.1
-    gemini:
-      api-key: ${GEMINI_API_KEY:}
-    openai:
-      api-key: ${OPENAI_API_KEY:}
-    anthropic:
-      api-key: ${ANTHROPIC_API_KEY:}
+      # Redis is used via templates (streams + pub/sub), never as a Spring Data
+      # repository store — this stops Redis from scanning the 8 JPA repositories.
+      repositories:
+        enabled: false
+  servlet:
+    multipart:
+      # Container-level cap for POST /analyses/upload — matches
+      # praxis.intake.max-total-size-mb so oversized uploads are rejected
+      # before they ever reach application code.
+      max-file-size: 200MB
+      max-request-size: 210MB
 
 
 server:
@@ -50,3 +59,38 @@ praxis:
     max-file-size-mb: 2
     clone-timeout-seconds: 120
     max-compression-ratio: 120
+    allowed-upload-extensions: zip   # add e.g. tar.gz here once a fetcher for it exists
+    upload-retention-hours: 24       # staged uploads older than this are janitored away
+  prism:
+    high-complexity: 10        # methods at/above this cyclomatic complexity are flagged
+    long-method-loc: 60        # methods longer than this many lines are flagged
+    god-object-methods: 20     # classes with more methods than this are flagged
+    god-object-loc: 400        # classes longer than this many lines are flagged
+  cortex:
+    provider: ${CORTEX_PROVIDER:stub}   # stub (offline, no keys) | ollama | openai | gemini
+    prompt-version: v1
+    temperature: 0.2
+    ollama:                              # local models — no key, no per-token cost
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      model: ${OLLAMA_MODEL:qwen2.5-coder:7b}   # strong open code model; use :32b or deepseek-coder-v2 if the box allows
+      timeout-seconds: 60
+    openai:
+      base-url: https://api.openai.com/v1
+      api-key: ${OPENAI_API_KEY:}
+      model: ${OPENAI_MODEL:gpt-4o}      # gpt-4o-mini for lower cost
+      timeout-seconds: 60
+    gemini:
+      base-url: https://generativelanguage.googleapis.com/v1beta
+      api-key: ${GEMINI_API_KEY:}
+      model: ${GEMINI_MODEL:gemini-1.5-pro}     # gemini-1.5-flash for speed/cost; newer models are drop-in
+      timeout-seconds: 60
+# --- Logging -------------------------------------------------------------
+# com.praxis at DEBUG traces the full business flow. Every flow log carries the
+# analysisId, so in Splunk you can follow one analysis across the request thread,
+# the Redis worker thread, and every pipeline stage by filtering on that id.
+# Drop com.praxis to INFO in production if DEBUG is too chatty.
+logging:
+  level:
+    com.praxis: DEBUG
+  pattern:
+    console: "%d{HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n"

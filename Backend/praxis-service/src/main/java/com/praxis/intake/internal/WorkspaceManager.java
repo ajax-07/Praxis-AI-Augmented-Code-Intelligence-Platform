@@ -6,8 +6,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.DosFileAttributeView;
 import java.util.Comparator;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -62,7 +64,7 @@ public class WorkspaceManager {
             walk.sorted(Comparator.reverseOrder()) // children before parents
                 .forEach(p -> {
                     try {
-                        Files.delete(p);
+                        deleteForcing(p);
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
@@ -72,6 +74,24 @@ public class WorkspaceManager {
                 throw io;
             }
             throw e;
+        }
+    }
+
+    /**
+     * Git marks pack files (.git/objects/pack/*.pack) read-only, and Windows
+     * refuses to delete read-only files. Clear the DOS read-only flag and retry
+     * once; on filesystems without DOS attributes the original error stands.
+     */
+    private void deleteForcing(Path p) throws IOException {
+        try {
+            Files.delete(p);
+        } catch (AccessDeniedException denied) {
+            DosFileAttributeView dos = Files.getFileAttributeView(p, DosFileAttributeView.class);
+            if (dos == null) {
+                throw denied;
+            }
+            dos.setReadOnly(false);
+            Files.delete(p);
         }
     }
 }

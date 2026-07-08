@@ -10,6 +10,6 @@
  */
 @org.springframework.modulith.ApplicationModule(
     displayName = "Conductor",
-    allowedDependencies = {"identity :: api", "intake :: api", "common",}
+    allowedDependencies = {"identity :: api", "intake :: api", "prism :: api", "cortex :: api", "verdict :: api", "common"}
 )
 package com.praxis.conductor;

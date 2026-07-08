@@ -14,7 +14,7 @@ It owns three responsibilities and nothing else:
 2. **Async execution** — turn a synchronous `POST /analyses` into a background job: persist + enqueue on the request thread, run the work on a worker thread.
 3. **Live progress** — stream each stage change back to the browser as it happens.
 
-Conductor does **not** know *how* to fetch, parse, or call an LLM. Those belong to Intake, Prism, and Cortex. Right now every stage is **simulated** (a short sleep + a progress ping) so the orchestration can be proven correct in isolation, before any real module exists. Each simulated stage is a labelled seam where a real module plugs in later with **zero change** to the orchestration.
+Conductor does **not** know *how* to fetch, parse, or call an LLM. Those belong to Intake, Prism, Cortex, and Verdict. **Every stage is now real** — Conductor calls each module through its `api` and threads the outputs through a `PipelineContext`. The orchestration was first built with simulated stages (a sleep + progress ping) and each was swapped for a real call **without changing the state machine, worker, SSE relay, or controller** — which was the whole point of that approach.
 
 ---
 
@@ -41,7 +41,7 @@ Its only compile-time dependency on another module is `identity :: api` (declare
 | `AnalysisOrchestrator` | `internal` | **Request-thread** entry: persist + enqueue, return fast |
 | `JobPublisher` | `internal` | Producer → Redis **Stream** (`praxis:analysis:jobs`) |
 | `AnalysisWorker` | `internal` | Consumer ← Redis Stream; runs the pipeline off the request thread |
-| `AnalysisPipeline` | `internal` | Walks the stages; the **simulated** work lives here |
+| `AnalysisPipeline` | `internal` | Walks the stages; calls Intake/Prism/Cortex/Verdict; releases the workspace in `finally` |
 | `ProgressPublisher` | `internal` | Producer → Redis **Pub/Sub** (`praxis:analysis:progress`) |
 | `ProgressSubscriber` | `internal` | Consumer ← Redis Pub/Sub → hands events to the SSE registry |
 | `SseEmitterRegistry` | `internal` | Holds this instance's live browser SSE connections |
@@ -128,17 +128,17 @@ Because transitions are guarded in the aggregate (not scattered across services)
 
 ## 6. Node logic — what each stage does
 
-The pipeline iterates `AnalysisStatus.workingStages()`. For each stage it: (1) `advanceTo(stage)` + save, (2) publish a progress event, (3) do the stage's work. Below, **Now** = current simulated behavior; **Becomes** = the real module that plugs into that seam.
+Each stage: (1) `advanceTo(stage)` + save, (2) publish a progress event, (3) do the stage's real work, passing its output to the next stage via `PipelineContext`.
 
-| Node | Now (simulated) | Becomes (real) | Plug-in seam |
-|---|---|---|---|
-| **FETCHING** | sleep + "Fetching source code…" | Clone the GitHub URL / extract the zip into a sandboxed temp dir; filter to `.java`; enforce size/count/timeout guards | `intake.api.SourceFetcher` |
-| **PARSING** | sleep + "Parsing and measuring code…" | JavaParser + SymbolSolver → metrics (complexity, coupling), pattern/anti-pattern detection, per-unit **risk score**; persist `file_result` / `code_unit` / STATIC `issue_finding` | `prism.api.StaticAnalyzer` |
-| **ANALYZING** | sleep + "Selecting high-risk code…" | The **funnel**: select only `code_unit`s where `risk_score ≥ threshold` — this is the cost lever that stops us sending the whole repo to the LLM | Conductor's own selection logic (reads Prism output) |
-| **SUMMARIZING** | sleep + "Generating explanations…" | For the selected units only: LLM explanations, refactors, JavaDoc via Spring AI; write AI `issue_finding` + `llm_call` rows; honor `LOCAL_ONLY` tenants (Ollama) | `cortex.api.LlmEnricher` |
-| **SCORING** | random 55–95 placeholder | Aggregate static + AI signals into a 0–100 Repository Health Score with a transparent, versioned formula | `verdict.api.HealthScorer` |
+| Node | What it does (real) | Module / seam |
+|---|---|---|
+| **FETCHING** | Clone the GitHub URL / extract the zip into a sandboxed temp dir; filter to `.java`; enforce size/count/timeout guards. Result stored in the context. | `intake.api.SourceFetcher` |
+| **PARSING** | Map fetched files → Prism `SourceFile`s; parse, measure (complexity, LOC), detect patterns/anti-patterns, compute per-unit **risk score**; persist `file_result` / `code_unit` / STATIC `issue_finding`. | `prism.api.StaticAnalyzer` |
+| **ANALYZING** | The **funnel** (Conductor's own logic): keep only units with `risk_score ≥ praxis.analysis.risk-threshold` (default 60). This is the cost lever — only these reach the LLM. | Conductor, over Prism's output |
+| **SUMMARIZING** | For the selected units only: `LlmEnricher.enrich(...)` produces an explanation + refactor per unit and writes AI `issue_finding` + `llm_call` rows. Ships with a deterministic offline stub (see `cortex.md`). | `cortex.api.LlmEnricher` |
+| **SCORING** | Build a `ScoringInput` from Prism aggregates + `AnalysisResultQuery.severityCounts(...)`; compute the 0–100 health score; `analysis.markComplete(score)`. | `verdict.api.HealthScorer` |
 
-Replacing a node means swapping its `sleep()` for a real call inside `AnalysisPipeline`. The state machine, the worker, the SSE relay, the controller, and the DB writes **do not change** — that is the entire reason for building the skeleton simulated first.
+The workspace from FETCHING is **always** released in a `finally` block — success or failure. The state machine, worker, SSE relay, controller, and DB writes are unchanged from the simulated skeleton.
 
 ---
 
@@ -176,14 +176,19 @@ curl -N -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/v1/analyses/
 curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/v1/analyses/$ID | jq
 ```
 
-**✅ Checkpoint:** the SSE stream emits `FETCHING → PARSING → ANALYZING → SUMMARIZING → SCORING → COMPLETE`, then `GET /analyses/{id}` shows `COMPLETE` with a health score. The async machinery is proven — every remaining module is now just replacing a `sleep()`.
+**✅ Checkpoint:** the SSE stream emits `FETCHING → PARSING → ANALYZING → SUMMARIZING → SCORING → COMPLETE` with **real** counts (files parsed, high-risk units selected, units AI-reviewed), then `GET /analyses/{id}` shows `COMPLETE` with a **real** health score from Verdict.
 
 ---
 
-## 9. What plugs in next
+## 9. Status & what plugs in next
 
-Per the build guide, the next module is **Intake** (real `FETCHING`), then **Prism** (real `PARSING` + risk scores), at which point the **ANALYZING** funnel becomes real selection logic instead of a sleep. Nothing in this module needs to change for that to happen.
+All five stages are **real**: Intake, Prism, Cortex (stub provider by default), and Verdict are wired in. The **AFTER_COMMIT publish** race is fixed — the job is published from a `TransactionSynchronization.afterCommit()` so the worker can never read the analysis row before it is committed.
+
+Next: **Recall** (semantic cache between the funnel and Cortex — skip the LLM for known code) and **Ledger** (cost/quota accounting; takes ownership of `llm_call` from Cortex via an event). Then the **React frontend** against the read APIs. See `recall.md` / `ledger.md`.
+
+### Observability
+Every business step logs via SLF4J at `com.praxis` (DEBUG in dev). **Each flow log carries the `analysisId`**, so in Splunk one analysis can be followed across the request thread, the Redis worker thread, and all five stages by filtering on that id.
 
 ### Known hardening deferred to Phase 2
 - **Pending-message reclaim**: a crashed worker leaves an unacked stream entry. Add a scheduled `XAUTOCLAIM` to reassign stale pending jobs. Safe to defer because the idempotency guard already makes reprocessing correct.
-- **AFTER_COMMIT publish**: publishing the job strictly after the DB transaction commits (via a transaction synchronization / application event) closes a tiny race where a very fast worker could read before commit. The worker's DB re-read makes this benign for the MVP.
+- **SSE auth via query param**: the browser `EventSource` can't send an `Authorization` header, so `JwtAuthFilter` accepts `?access_token=` **on the `/events` route only**. A short-lived, single-purpose SSE token would be tighter than reusing the access token.

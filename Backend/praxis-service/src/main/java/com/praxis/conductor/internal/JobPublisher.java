@@ -1,5 +1,7 @@
 package com.praxis.conductor.internal;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.connection.stream.MapRecord;
 import org.springframework.data.redis.connection.stream.StreamRecords;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -20,6 +22,8 @@ import java.util.Map;
 @Component
 public class JobPublisher {
 
+    private static final Logger log = LoggerFactory.getLogger(JobPublisher.class);
+
     public static final String STREAM_KEY = "praxis:analysis:jobs";
 
     private final StringRedisTemplate redis;
@@ -34,6 +38,8 @@ public class JobPublisher {
                         "analysisId", job.analysisId().toString(),
                         "tenantId", job.tenantId().toString()))
                 .withStreamKey(STREAM_KEY);
-        redis.opsForStream().add(record);
+        var recordId = redis.opsForStream().add(record);
+        log.info("Published job to stream {}: analysisId={} recordId={}",
+                STREAM_KEY, job.analysisId(), recordId);
     }
 }

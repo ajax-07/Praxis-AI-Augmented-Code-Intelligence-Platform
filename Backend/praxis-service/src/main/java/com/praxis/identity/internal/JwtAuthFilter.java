@@ -1,5 +1,7 @@
 package com.praxis.identity.internal;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.praxis.identity.api.PraxisPrincipal;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
@@ -29,6 +31,8 @@ import java.util.UUID;
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
 
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthFilter.class);
+
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtService jwtService;
@@ -44,18 +48,37 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-        String header = request.getHeader("Authorization");
+        String token = resolveToken(request);
 
-        if (header != null && header.startsWith(BEARER_PREFIX)) {
+        if (token != null) {
             try {
-                Claims claims = jwtService.parse(header.substring(BEARER_PREFIX.length())).getPayload();
+                Claims claims = jwtService.parse(token).getPayload();
                 authenticate(claims);
             } catch (JwtException | IllegalArgumentException ex) {
+                log.debug("Rejecting request — invalid/expired JWT: {}", ex.getMessage());
                 SecurityContextHolder.clearContext();
             }
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * Prefer the standard "Authorization: Bearer <token>" header. Fall back to an
+     * `?access_token=` query param ONLY for the SSE endpoint: the browser
+     * EventSource API cannot set custom headers, so the token must ride on the URL
+     * there. We scope the fallback to /events so tokens don't leak into other
+     * request logs unnecessarily.
+     */
+    private String resolveToken(HttpServletRequest request) {
+        String header = request.getHeader("Authorization");
+        if (header != null && header.startsWith(BEARER_PREFIX)) {
+            return header.substring(BEARER_PREFIX.length());
+        }
+        if (request.getRequestURI().endsWith("/events")) {
+            return request.getParameter("access_token");
+        }
+        return null;
     }
 
     private void authenticate(Claims claims) {
@@ -68,5 +91,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         var authentication = new UsernamePasswordAuthenticationToken(principal, null, authorities);
         SecurityContextHolder.getContext().setAuthentication(authentication);
+        log.debug("Authenticated request: userId={} tenantId={} role={}", userId, tenantId, role);
     }
 }

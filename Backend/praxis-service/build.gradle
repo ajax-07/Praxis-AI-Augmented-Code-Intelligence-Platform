@@ -43,6 +43,9 @@ dependencies {
 	// Persistence
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-jdbc' // pgvector store needs this
+	// Boot 4 modularized autoconfiguration: without spring-boot-flyway on the
+	// classpath, flyway-core is present but Boot never runs the migrations (silently!).
+	implementation 'org.springframework.boot:spring-boot-flyway'
 	implementation 'org.flywaydb:flyway-core'
 	implementation 'org.flywaydb:flyway-database-postgresql'
 	runtimeOnly    'org.postgresql:postgresql'
@@ -53,12 +56,15 @@ dependencies {
 	// Modular monolith
 	implementation 'org.springframework.modulith:spring-modulith-starter-core'
 
-	// AI (Spring AI) — provider starters
+	// AI (Spring AI) — currently unused: Cortex calls providers directly via
+	// RestClient (cortex/internal/AbstractHttpLlmClient), so these starters only
+	// added dead autoconfiguration (ChatModel beans, a stray vector_store table).
+	// Re-enable the pgvector starter when building Recall (Phase 2).
 //	implementation 'org.springframework.ai:spring-ai-starter-model-openai'
 //	implementation 'org.springframework.ai:spring-ai-starter-model-google-genai'
 //	implementation 'org.springframework.ai:spring-ai-starter-model-anthropic'
-	implementation 'org.springframework.ai:spring-ai-starter-model-ollama'
-	implementation 'org.springframework.ai:spring-ai-starter-vector-store-pgvector' // Recall (Phase 2)
+//	implementation 'org.springframework.ai:spring-ai-starter-model-ollama'
+//	implementation 'org.springframework.ai:spring-ai-starter-vector-store-pgvector' // Recall (Phase 2)
 
 	// Static analysis + repo fetch
 	implementation "com.github.javaparser:javaparser-symbol-solver-core:${javaparserVersion}"

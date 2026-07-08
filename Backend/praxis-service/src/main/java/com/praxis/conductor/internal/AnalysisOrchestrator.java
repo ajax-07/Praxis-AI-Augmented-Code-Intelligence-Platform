@@ -1,5 +1,7 @@
 package com.praxis.conductor.internal;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.praxis.conductor.api.dto.AnalysisView;
 import com.praxis.conductor.api.dto.StartAnalysisRequest;
 import com.praxis.conductor.api.dto.StartAnalysisResponse;
@@ -23,6 +25,8 @@ import java.util.UUID;
 @Service
 public class AnalysisOrchestrator {
 
+    private static final Logger log = LoggerFactory.getLogger(AnalysisOrchestrator.class);
+
     private static final String PROMPT_VERSION = "v1";
 
     private final CodeRepositoryRepository repositories;
@@ -45,6 +49,8 @@ public class AnalysisOrchestrator {
     @Transactional
     public StartAnalysisResponse start(StartAnalysisRequest request) {
         UUID tenantId = identity.currentTenantId();
+        log.info("Start analysis requested: tenantId={} name='{}' sourceType={} sourceRef={}",
+                tenantId, request.name(), request.sourceType(), request.sourceRef());
 
         Repository repo = new Repository(
                 UUID.randomUUID(), tenantId, request.name(), request.sourceType(), request.sourceRef());
@@ -52,6 +58,8 @@ public class AnalysisOrchestrator {
 
         Analysis analysis = new Analysis(UUID.randomUUID(), repo.getId(), tenantId, PROMPT_VERSION);
         analyses.save(analysis);
+        log.info("Persisted repositoryId={} and analysisId={} in QUEUED (tenantId={})",
+                repo.getId(), analysis.getId(), tenantId);
 
         // Publish the job ONLY after this transaction COMMITS. Previously the
         // publish ran inside the transaction, so the worker could read the
@@ -62,6 +70,7 @@ public class AnalysisOrchestrator {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
+                log.info("Transaction committed — enqueuing job for analysisId={}", analysisId);
                 jobPublisher.publish(new AnalysisJob(analysisId, tenantId));
             }
         });
@@ -72,6 +81,7 @@ public class AnalysisOrchestrator {
     @Transactional(readOnly = true)
     public AnalysisView get(UUID analysisId) {
         UUID tenantId = identity.currentTenantId();
+        log.debug("Fetching analysisId={} for tenantId={}", analysisId, tenantId);
         Analysis analysis = analyses.findByIdAndTenantId(analysisId, tenantId)
                 .orElseThrow(() -> new AnalysisNotFoundException(analysisId));
         return AnalysisView.from(analysis);

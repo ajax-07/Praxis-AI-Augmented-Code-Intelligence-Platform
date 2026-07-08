@@ -1,0 +1,582 @@
+<title>Praxis — System Flow Map</title>
+<style>
+  :root {
+    --ground: #F4F6F7;
+    --surface: #FFFFFF;
+    --ink: #1B2529;
+    --muted: #5C6E76;
+    --line: #DBE3E6;
+    --acc: #0E7A8A;
+    --acc-soft: #E3F0F2;
+    --ok: #1F8A5B;
+    --ok-soft: #E4F2EA;
+    --sim: #A26F0F;
+    --sim-soft: #F6EDD8;
+    --stub: #78878F;
+    --stub-soft: #EDF0F1;
+    --code-bg: #EEF2F3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #10171A;
+      --surface: #172125;
+      --ink: #E3EBED;
+      --muted: #8FA3AB;
+      --line: #2A383E;
+      --acc: #45B8CA;
+      --acc-soft: #143138;
+      --ok: #4CC08A;
+      --ok-soft: #143123;
+      --sim: #D9A93F;
+      --sim-soft: #33290F;
+      --stub: #8A9AA2;
+      --stub-soft: #1F2B30;
+      --code-bg: #1E2B30;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #10171A; --surface: #172125; --ink: #E3EBED; --muted: #8FA3AB;
+    --line: #2A383E; --acc: #45B8CA; --acc-soft: #143138; --ok: #4CC08A;
+    --ok-soft: #143123; --sim: #D9A93F; --sim-soft: #33290F; --stub: #8A9AA2;
+    --stub-soft: #1F2B30; --code-bg: #1E2B30;
+  }
+  :root[data-theme="light"] {
+    --ground: #F4F6F7; --surface: #FFFFFF; --ink: #1B2529; --muted: #5C6E76;
+    --line: #DBE3E6; --acc: #0E7A8A; --acc-soft: #E3F0F2; --ok: #1F8A5B;
+    --ok-soft: #E4F2EA; --sim: #A26F0F; --sim-soft: #F6EDD8; --stub: #78878F;
+    --stub-soft: #EDF0F1; --code-bg: #EEF2F3;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    margin: 0;
+    padding: 40px 20px 80px;
+  }
+  .wrap { max-width: 1160px; margin: 0 auto; display: flex; flex-direction: column; gap: 44px; }
+
+  code, .mono {
+    font-family: "Cascadia Code", Consolas, ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  code {
+    background: var(--code-bg);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 0.86em;
+  }
+
+  /* ---------- header ---------- */
+  header h1 {
+    font-size: 30px;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    margin: 0 0 6px;
+    text-wrap: balance;
+  }
+  header h1 .mono { color: var(--acc); font-weight: 600; }
+  header p.sub { color: var(--muted); margin: 0; max-width: 72ch; }
+
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 10px 22px;
+    margin-top: 18px; padding: 12px 16px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    font-size: 13px;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); }
+  .swatch { width: 22px; height: 0; border-top: 3px solid; border-radius: 2px; }
+  .sw-live { border-color: var(--ok); }
+  .sw-sim { border-color: var(--sim); border-top-style: dashed; }
+  .sw-stub { border-color: var(--stub); border-top-style: dotted; }
+  .sw-acc { border-color: var(--acc); }
+
+  /* ---------- section headings ---------- */
+  section > h2 {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--acc);
+    margin: 0 0 4px;
+    font-family: "Cascadia Code", Consolas, ui-monospace, monospace;
+  }
+  section > p.lead { color: var(--muted); font-size: 14px; margin: 0 0 18px; max-width: 80ch; }
+
+  /* ---------- status chips ---------- */
+  .chip {
+    display: inline-block;
+    font-family: "Cascadia Code", Consolas, ui-monospace, monospace;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    padding: 2px 8px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .chip.live { background: var(--ok-soft); color: var(--ok); }
+  .chip.sim  { background: var(--sim-soft); color: var(--sim); }
+  .chip.stub { background: var(--stub-soft); color: var(--stub); border: 1px dashed var(--stub); }
+  .chip.next { background: var(--acc-soft); color: var(--acc); border: 1px solid var(--acc); }
+
+  /* ---------- module map ---------- */
+  .tier {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px 20px;
+  }
+  .tier-label {
+    font-family: "Cascadia Code", Consolas, ui-monospace, monospace;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted);
+    margin: 0 0 12px;
+  }
+  .connector {
+    display: flex; justify-content: center; align-items: center; gap: 10px;
+    padding: 8px 0; color: var(--muted); font-size: 12px;
+  }
+  .connector .mono { color: var(--acc); font-size: 11.5px; }
+  .connector::before, .connector::after { content: ""; flex: 0 0 60px; border-top: 1px dashed var(--line); }
+  .connector .arrow { color: var(--acc); font-size: 14px; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(235px, 1fr)); gap: 12px; }
+  .card {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    background: var(--ground);
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .card.dashed { border-style: dashed; }
+  .card .head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .card .name { font-family: "Cascadia Code", Consolas, ui-monospace, monospace; font-weight: 700; font-size: 14px; }
+  .card .role { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+  .card .detail { font-size: 11.5px; line-height: 1.6; color: var(--ink); }
+  .card .detail .mono { font-size: 10.5px; color: var(--acc); }
+  .card .gap { font-size: 11px; color: var(--sim); }
+
+  .rule-note {
+    margin-top: 12px; font-size: 12px; color: var(--muted);
+    border-top: 1px solid var(--line); padding-top: 10px;
+  }
+
+  /* ---------- diagram scroll containers ---------- */
+  .scroll {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow-x: auto;
+    padding: 10px 6px 4px;
+  }
+  .scroll svg { display: block; min-width: 1240px; width: 100%; height: auto; }
+
+  svg text {
+    font-family: "Cascadia Code", Consolas, ui-monospace, monospace;
+    paint-order: stroke;
+    stroke: var(--surface);
+    stroke-width: 3.5px;
+    stroke-linejoin: round;
+    fill: var(--ink);
+  }
+  svg .lifeline { stroke: var(--line); stroke-dasharray: 3 4; stroke-width: 1; }
+  svg .head-box { fill: var(--ground); stroke: var(--line); }
+  svg .head-box.stubbox { stroke: var(--stub); stroke-dasharray: 4 3; }
+  svg .head-box.simbox { stroke: var(--sim); stroke-dasharray: 4 3; }
+  svg .head-txt { font-size: 11.5px; font-weight: 700; text-anchor: middle; }
+  svg .head-sub { font-size: 8.5px; text-anchor: middle; fill: var(--muted); stroke-width: 2.5px; }
+  svg .phase { font-size: 11px; font-weight: 700; fill: var(--acc); letter-spacing: 0.08em; }
+  svg .phase-rule { stroke: var(--acc); stroke-width: 1; opacity: 0.35; }
+  svg .msg { font-size: 10.5px; text-anchor: middle; }
+  svg .note { font-size: 9.5px; text-anchor: middle; fill: var(--muted); font-style: italic; }
+  svg .l-acc { stroke: var(--acc); stroke-width: 1.4; }
+  svg .l-ok  { stroke: var(--ok); stroke-width: 1.6; }
+  svg .l-sim { stroke: var(--sim); stroke-width: 1.4; stroke-dasharray: 5 4; }
+  svg .l-ret { stroke: var(--acc); stroke-width: 1.2; stroke-dasharray: 2 4; }
+
+  /* ---------- auth flows ---------- */
+  .flows { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+  .flow {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px; font-size: 12.5px;
+  }
+  .flow h3 { margin: 0 0 8px; font-size: 13px; font-weight: 650; }
+  .flow ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; color: var(--muted); }
+  .flow ol b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- state machine ---------- */
+  .states { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; }
+  .state {
+    font-family: "Cascadia Code", Consolas, ui-monospace, monospace;
+    font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 7px;
+  }
+  .state.live { background: var(--ok-soft); color: var(--ok); }
+  .state.sim { background: var(--sim-soft); color: var(--sim); border: 1px dashed var(--sim); }
+  .state.neutral { background: var(--stub-soft); color: var(--ink); }
+  .state.fail { background: var(--stub-soft); color: var(--stub); border: 1px dashed var(--stub); }
+  .states .arr { color: var(--muted); font-size: 13px; }
+  .states .note { flex-basis: 100%; font-size: 11.5px; color: var(--muted); margin-top: 6px; }
+
+  /* ---------- roadmap ---------- */
+  .steps { display: flex; flex-direction: column; gap: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 8px 0; }
+  .step { display: grid; grid-template-columns: 52px 150px 1fr; gap: 14px; align-items: baseline; padding: 11px 20px; }
+  .step + .step { border-top: 1px solid var(--line); }
+  .step .num {
+    font-family: "Cascadia Code", Consolas, ui-monospace, monospace;
+    font-size: 15px; font-weight: 700; color: var(--acc);
+    font-variant-numeric: tabular-nums;
+  }
+  .step .what { font-weight: 650; font-size: 14px; font-family: "Cascadia Code", Consolas, ui-monospace, monospace; }
+  .step .why { font-size: 12.5px; color: var(--muted); }
+  .step.first { background: var(--acc-soft); border-radius: 8px; margin: 0 8px; padding: 11px 12px; }
+
+  @media (max-width: 640px) {
+    body { padding: 24px 12px 60px; }
+    .step { grid-template-columns: 36px 1fr; }
+    .step .why { grid-column: 2; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .card { transition: border-color 0.15s ease; }
+    .card:hover { border-color: var(--acc); }
+  }
+</style>
+
+<div class="wrap">
+
+<header>
+  <h1><span class="mono">Praxis</span> — System Flow Map</h1>
+  <p class="sub">AI-augmented code intelligence: deterministic static analysis filters, the LLM explains and fixes. Phase 1 is complete end to end — backend pipeline, real LLM providers (Ollama · OpenAI · Gemini) behind one config switch, and the React console — verified by a full UI-driven analysis run. This page doubles as the map for what's next.</p>
+  <div class="legend">
+    <span><i class="swatch sw-live"></i> Live — implemented &amp; tested</span>
+    <span><i class="swatch sw-sim"></i> Config-selected — real engines exist; default <code>provider=stub</code> runs offline</span>
+    <span><i class="swatch sw-stub"></i> Stub / planned — <code>package-info.java</code> only, or not started</span>
+    <span><i class="swatch sw-acc"></i> Infrastructure operation</span>
+  </div>
+</header>
+
+<!-- ══════════════════ MODULE MAP ══════════════════ -->
+<section>
+  <h2>1 · Module map</h2>
+  <p class="lead">One deployable Spring Modulith JAR (port <code>8145</code>). A module may only call another through its <code>api</code> package — enforced by the <code>ApplicationModules.verify()</code> boundary test.</p>
+
+  <div class="tier">
+    <p class="tier-label">Client tier</p>
+    <div class="cards">
+      <div class="card" style="grid-column: 1 / -1;">
+        <div class="head"><span class="name">Praxis Console</span><span class="chip live">LIVE</span></div>
+        <div class="role">React 19 + Vite + TypeScript (strict) + MUI + TanStack Query. Auth via JWT in localStorage; SSE progress with polling fallback; nginx-served in Docker, proxying <code>/api</code>.</div>
+        <div class="detail">Pages: <span class="mono">Login · Register · AnalysesList · NewAnalysis (GitHub | zip upload) · Analysis</span> (3-panel: FileTree | CodeViewer | FindingsPanel) — hooks <span class="mono">useAnalysis · useAnalysisEvents(SSE) · useFileTree/Detail · useStart/UploadAnalysis</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector"><span class="mono">REST /api/v1 + SSE</span> <span class="arrow">▼</span> <span>Bearer JWT on every request except <span class="mono">/auth/**</span>, <span class="mono">/actuator/health</span></span></div>
+
+  <div class="tier">
+    <p class="tier-label">praxis-service — Spring Boot 4.1 · Modulith 2.1 · Java 21 (virtual threads)</p>
+    <div class="cards">
+      <div class="card">
+        <div class="head"><span class="name">identity</span><span class="chip live">LIVE</span></div>
+        <div class="role">Auth &amp; tenancy. Register creates tenant + first ADMIN user; JWT HS256, 60 min, no DB hit per request.</div>
+        <div class="detail"><span class="mono">AuthController · AuthService · JwtService · JwtAuthFilter · SecurityConfig</span><br>exports <span class="mono">IdentityFacade.currentTenantId()</span> · SSE fallback: <span class="mono">?access_token=</span> accepted, but only for <span class="mono">/events</span> URIs (EventSource can't set headers)</div>
+        <div class="gap">gaps: no refresh / revocation / invites; roles never enforced</div>
+      </div>
+      <div class="card">
+        <div class="head"><span class="name">intake</span><span class="chip live">LIVE</span></div>
+        <div class="role">Source ingestion. Shallow JGit clone or zip extract into a sandboxed ephemeral workspace, then <code>.java</code> scan.</div>
+        <div class="detail"><span class="mono">SourceFetcherImpl · WorkspaceManager · GitRepositoryCloner · ZipExtractor · JavaFileScanner · UploadStore/Janitor</span><br>exports <span class="mono">SourceFetcher · FetchCommand/Result · JavaFile · UploadStore · StagedSource</span></div>
+        <div class="detail">guards: zip-slip · zip-bomb ≤120× · 200 MB / 5000 files · 2 MB/file · 120 s clone watchdog</div>
+      </div>
+      <div class="card">
+        <div class="head"><span class="name">conductor</span><span class="chip live">LIVE</span> <span class="chip live">5/5 STAGES REAL</span></div>
+        <div class="role">Orchestration. REST + Redis Stream jobs + Pub/Sub progress + SSE. Owns <code>Analysis</code>/<code>Repository</code>, the state machine, and the risk funnel.</div>
+        <div class="detail"><span class="mono">AnalysisController · AnalysisOrchestrator · AnalysisPipeline · AnalysisWorker · SseEmitterRegistry · Job/ProgressPublisher</span><br>exports <span class="mono">AnalysisQuery.find/list(tenantId)</span> — read api for Chronicle<br><span class="mono">POST /analyses/upload</span> (multipart) — stages the file via intake <span class="mono">UploadStore</span>, then the normal start() flow</div>
+        <div class="detail">deps: <span class="mono">identity::api · intake::api · prism::api · cortex::api · verdict::api · common</span></div>
+      </div>
+      <div class="card">
+        <div class="head"><span class="name">prism</span><span class="chip live">LIVE</span></div>
+        <div class="role">Static analysis. JavaParser AST (lenient, per-file; unparseable files skipped) → metrics, pattern visitors, risk score per unit.</div>
+        <div class="detail"><span class="mono">AstParser · MetricCalculator · PatternDetector · RiskScorer · StaticAnalyzerImpl</span><br>detects: <span class="mono">HIGH_COMPLEXITY ≥10 · LONG_METHOD &gt;60 loc · GOD_OBJECT &gt;20 methods/&gt;400 loc · SINGLETON · BUILDER</span></div>
+        <div class="detail">writes <span class="mono">file_result</span> (incl. source text, <span class="mono">V2</span>) · <span class="mono">code_unit</span> (sha-256 + risk_score) · <span class="mono">issue_finding(STATIC)</span><br>exports <span class="mono">StaticAnalyzer · FindingWriter · AnalysisResultQuery</span></div>
+      </div>
+      <div class="card">
+        <div class="head"><span class="name">cortex</span><span class="chip live">LIVE</span></div>
+        <div class="role">LLM layer. One provider selected at startup by <code>praxis.cortex.provider</code> (<code>@ConditionalOnProperty</code>): stub (default, offline) · ollama · openai · gemini.</div>
+        <div class="detail"><span class="mono">LlmEnricher → CortexService → LlmClient</span> → <span class="mono">Ollama qwen2.5-coder:7b · OpenAI gpt-4o · Gemini 1.5-pro</span> — RestClient (deliberately no Spring AI dep), temp 0.2, real token counts, Gemini key in header not URL<br>degradation: unreachable / missing key ⇒ <span class="mono">LlmUnavailableException</span> stops the batch → analysis completes <b>static-only</b>; a 4xx/5xx or blank reply skips just that unit · AI findings via prism <span class="mono">FindingWriter</span> + one <span class="mono">llm_call</span> row/unit</div>
+        <div class="gap">gaps: no response cache · no retry/circuit-breaker · cost_cents=0 until Ledger · promptVersion unread</div>
+      </div>
+      <div class="card">
+        <div class="head"><span class="name">verdict</span><span class="chip live">LIVE</span></div>
+        <div class="role">Scoring. Versioned pure function (<code>FORMULA_VERSION = "v1"</code>) → Repository Health Score 0–100.</div>
+        <div class="detail"><span class="mono">score = clamp(100 − (crit×8 + maj×3 + min×1)/KLOC − min(20, (avgCx−5)×2))</span><br>size-normalized per KLOC · complexity penalty capped at 20 · weights hardcoded (not in yaml)</div>
+      </div>
+      <div class="card">
+        <div class="head"><span class="name">chronicle</span><span class="chip live">LIVE</span></div>
+        <div class="role">Dashboard read-side. Owns no data — aggregates conductor + prism read apis; ownership failures are 404, never 403.</div>
+        <div class="detail"><span class="mono">DashboardController</span>: <span class="mono">GET /analyses · /analyses/{id}/files · /files/{fileId}</span><br>via <span class="mono">conductor AnalysisQuery</span> + <span class="mono">prism AnalysisResultQuery</span></div>
+        <div class="gap">still planned: Markdown/PDF export (<span class="mono">ReportGenerator</span>)</div>
+      </div>
+      <div class="card dashed">
+        <div class="head"><span class="name">ledger</span><span class="chip stub">STUB</span></div>
+        <div class="role">Cost governance: meter every LLM call, per-tenant budgets, hard stop on overspend.</div>
+        <div class="detail">planned: <span class="mono">UsageRecorder · BudgetGuard</span> — <span class="mono">llm_call</span> rows are already written by Cortex today (cost_cents=0); ownership moves here later</div>
+      </div>
+      <div class="card dashed">
+        <div class="head"><span class="name">recall</span><span class="chip stub">PHASE 2</span></div>
+        <div class="role">RAG: embed code units into pgvector(768); grounds chat Q&amp;A and cross-file context for Cortex.</div>
+        <div class="detail">planned: cosine top-5 via <span class="mono">vector &lt;=&gt; :q</span></div>
+      </div>
+      <div class="card">
+        <div class="head"><span class="name">common</span><span class="chip live">OPEN KERNEL</span></div>
+        <div class="role">Shared kernel, open to all modules.</div>
+        <div class="detail"><span class="mono">ApiError · ApiException · GlobalExceptionHandler · SourceType{GITHUB, ZIP}</span></div>
+      </div>
+    </div>
+    <p class="rule-note">All pipeline seams are wired in <code>AnalysisPipeline</code>: PARSING → <span class="mono">prism.StaticAnalyzer</span>, ANALYZING → in-memory funnel (<span class="mono">riskScore ≥ praxis.analysis.risk-threshold = 60</span>), SUMMARIZING → <span class="mono">cortex.LlmEnricher</span> (skipped when 0 units selected), SCORING → <span class="mono">verdict.HealthScorer</span>.</p>
+  </div>
+
+  <div class="connector"><span class="mono">JPA / Flyway · Lettuce · filesystem · Spring AI</span> <span class="arrow">▼</span></div>
+
+  <div class="tier">
+    <p class="tier-label">Data plane — docker-compose runs these three; the app itself runs on the host today</p>
+    <div class="cards">
+      <div class="card">
+        <div class="head"><span class="name">PostgreSQL 16</span><span class="chip live">LIVE</span></div>
+        <div class="role"><code>pgvector/pgvector:pg16</code> — 9 tables from <code>V1__init.sql</code>; <code>V2__analysis_results.sql</code> adds <code>file_result.source</code> + analysis indexes.</div>
+        <div class="detail"><span class="mono">tenant · app_user</span> (identity) · <span class="mono">repository · analysis</span> (conductor) · <span class="mono">file_result · code_unit · issue_finding</span> (prism) · <span class="mono">llm_call</span> (cortex, → ledger later) · <span class="mono">embedding</span> (awaiting recall)</div>
+      </div>
+      <div class="card">
+        <div class="head"><span class="name">Redis 7</span><span class="chip live">LIVE</span></div>
+        <div class="role">Two roles today, one planned.</div>
+        <div class="detail">jobs: Stream <span class="mono">praxis:analysis:jobs</span>, group <span class="mono">praxis-workers</span> (at-least-once)<br>progress: Pub/Sub <span class="mono">praxis:analysis:progress</span> (best-effort)<br>planned: Cortex response cache</div>
+      </div>
+      <div class="card">
+        <div class="head"><span class="name">Workspace FS</span><span class="chip live">LIVE</span></div>
+        <div class="role">Ephemeral sandbox per analysis; wiped on retry, released in <code>finally</code> — never leaks.</div>
+        <div class="detail"><span class="mono">${tmpdir}/praxis-workspaces/{analysisId}</span></div>
+      </div>
+      <div class="card">
+        <div class="head"><span class="name">LLM providers</span><span class="chip sim">CONFIG-SELECTED</span></div>
+        <div class="role">Real clients for all three, chosen by env: <code>CORTEX_PROVIDER=ollama | openai | gemini</code>. Out of the box it stays on the offline stub — no keys needed to run.</div>
+        <div class="detail"><span class="mono">Ollama :11434 qwen2.5-coder:7b</span> (local, no key, no per-token cost) · <span class="mono">OpenAI gpt-4o</span> (<span class="mono">OPENAI_API_KEY</span>) · <span class="mono">Gemini 1.5-pro</span> (<span class="mono">GEMINI_API_KEY</span>)<br>still future: tenant <span class="mono">code_residency = LOCAL_ONLY</span> forcing Ollama-only routing</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ SEQUENCE ══════════════════ -->
+<section>
+  <h2>2 · The spine — one analysis, end to end</h2>
+  <p class="lead">Every stage runs for real now, including the LLM call — the amber SUMMARIZING arrow marks the one config-dependent hop: which engine answers (offline stub by default, Ollama / OpenAI / Gemini via <code>CORTEX_PROVIDER</code>). If the provider is down or has no key, the batch stops and the analysis completes on static findings alone. Scroll horizontally if needed.</p>
+
+  <div class="scroll">
+  <svg viewBox="0 0 1240 960" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Sequence diagram of a Praxis analysis from Console submit through pipeline stages to SSE completion and dashboard reads">
+    <defs>
+      <marker id="mAcc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--acc)"/></marker>
+      <marker id="mOk" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--ok)"/></marker>
+      <marker id="mSim" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--sim)"/></marker>
+    </defs>
+
+    <!-- lifelines -->
+    <line class="lifeline" x1="75"   y1="52" x2="75"   y2="944"/>
+    <line class="lifeline" x1="205"  y1="52" x2="205"  y2="944"/>
+    <line class="lifeline" x1="335"  y1="52" x2="335"  y2="944"/>
+    <line class="lifeline" x1="465"  y1="52" x2="465"  y2="944"/>
+    <line class="lifeline" x1="595"  y1="52" x2="595"  y2="944"/>
+    <line class="lifeline" x1="725"  y1="52" x2="725"  y2="944"/>
+    <line class="lifeline" x1="850"  y1="52" x2="850"  y2="944"/>
+    <line class="lifeline" x1="955"  y1="52" x2="955"  y2="944"/>
+    <line class="lifeline" x1="1065" y1="52" x2="1065" y2="944"/>
+    <line class="lifeline" x1="1175" y1="52" x2="1175" y2="944"/>
+
+    <!-- participant heads -->
+    <rect class="head-box" x="25" y="14" width="100" height="38" rx="7"/>
+    <text class="head-txt" x="75" y="30">Console</text><text class="head-sub" x="75" y="44">live</text>
+    <rect class="head-box" x="152" y="14" width="106" height="38" rx="7"/>
+    <text class="head-txt" x="205" y="30">JwtAuthFilter</text><text class="head-sub" x="205" y="44">identity</text>
+    <rect class="head-box" x="282" y="14" width="106" height="38" rx="7"/>
+    <text class="head-txt" x="335" y="30">REST edge</text><text class="head-sub" x="335" y="44">conductor · chronicle</text>
+    <rect class="head-box" x="415" y="14" width="100" height="38" rx="7"/>
+    <text class="head-txt" x="465" y="30">PostgreSQL</text><text class="head-sub" x="465" y="44">+pgvector</text>
+    <rect class="head-box" x="545" y="14" width="100" height="38" rx="7"/>
+    <text class="head-txt" x="595" y="30">Redis</text><text class="head-sub" x="595" y="44">stream + pub/sub</text>
+    <rect class="head-box" x="670" y="14" width="110" height="38" rx="7"/>
+    <text class="head-txt" x="725" y="30">Worker</text><text class="head-sub" x="725" y="44">AnalysisPipeline</text>
+    <rect class="head-box" x="802" y="14" width="96" height="38" rx="7"/>
+    <text class="head-txt" x="850" y="30">Intake</text><text class="head-sub" x="850" y="44">live</text>
+    <rect class="head-box" x="909" y="14" width="92" height="38" rx="7"/>
+    <text class="head-txt" x="955" y="30">Prism</text><text class="head-sub" x="955" y="44">live</text>
+    <rect class="head-box" x="1017" y="14" width="96" height="38" rx="7"/>
+    <text class="head-txt" x="1065" y="30">Cortex·LLM</text><text class="head-sub" x="1065" y="44">4 providers</text>
+    <rect class="head-box" x="1129" y="14" width="92" height="38" rx="7"/>
+    <text class="head-txt" x="1175" y="30">Verdict</text><text class="head-sub" x="1175" y="44">live</text>
+
+    <!-- PHASE A -->
+    <text class="phase" x="20" y="82">A · SUBMIT — request thread, milliseconds (live)</text>
+    <line class="phase-rule" x1="20" y1="88" x2="1220" y2="88"/>
+
+    <text class="msg" x="205" y="102">POST /api/v1/analyses {name, sourceType, sourceRef}</text>
+    <line class="l-ok" x1="75" y1="106" x2="330" y2="106" marker-end="url(#mOk)"/>
+    <text class="note" x="205" y="120">JwtAuthFilter → PraxisPrincipal(userId, tenantId, role) — no DB hit</text>
+
+    <text class="msg" x="400" y="132">INSERT repository + analysis(QUEUED) — @Transactional</text>
+    <line class="l-ok" x1="335" y1="136" x2="460" y2="136" marker-end="url(#mOk)"/>
+
+    <text class="msg" x="465" y="162">XADD praxis:analysis:jobs {analysisId, tenantId} — afterCommit()</text>
+    <line class="l-acc" x1="335" y1="166" x2="590" y2="166" marker-end="url(#mAcc)"/>
+
+    <text class="msg" x="205" y="192">202 Accepted {analysisId, QUEUED}</text>
+    <line class="l-ret" x1="335" y1="196" x2="80" y2="196" marker-end="url(#mAcc)"/>
+
+    <text class="msg" x="205" y="222">GET /analyses/{id}/events — SSE subscribe</text>
+    <line class="l-ok" x1="75" y1="226" x2="330" y2="226" marker-end="url(#mOk)"/>
+    <text class="note" x="205" y="240">tenant check first · ?access_token= fallback (EventSource can't set headers) · current status pushed · closes if terminal</text>
+
+    <!-- PHASE B -->
+    <text class="phase" x="20" y="270">B · PIPELINE — worker virtual thread (all 5 stages real)</text>
+    <line class="phase-rule" x1="20" y1="276" x2="1220" y2="276"/>
+
+    <text class="msg" x="660" y="292">XREADGROUP praxis-workers — at-least-once</text>
+    <line class="l-acc" x1="595" y1="296" x2="720" y2="296" marker-end="url(#mAcc)"/>
+
+    <text class="msg" x="595" y="322">load analysis — skip if status.isTerminal() (idempotent)</text>
+    <line class="l-acc" x1="725" y1="326" x2="470" y2="326" marker-end="url(#mAcc)"/>
+
+    <text class="msg" x="787" y="352">FETCHING · fetch(): shallow clone / unzip → scan *.java</text>
+    <line class="l-ok" x1="725" y1="356" x2="845" y2="356" marker-end="url(#mOk)"/>
+    <text class="note" x="850" y="370">zip-slip · zip-bomb ≤120× · 200 MB / 5000 files · 120 s watchdog</text>
+
+    <text class="msg" x="660" y="396">PUBLISH praxis:analysis:progress — repeats after every stage</text>
+    <line class="l-acc" x1="725" y1="400" x2="600" y2="400" marker-end="url(#mAcc)"/>
+
+    <text class="msg" x="840" y="426">PARSING · StaticAnalyzer.analyze() — AST → metrics → patterns → risk</text>
+    <line class="l-ok" x1="725" y1="430" x2="950" y2="430" marker-end="url(#mOk)"/>
+    <text class="note" x="840" y="444">persists file_result(+source) · code_unit(risk_score) · issue_finding(STATIC)</text>
+
+    <text class="msg" x="836" y="468">ANALYZING · funnel: riskScore ≥ 60 → LLM candidates only (in-memory)</text>
+    <path class="l-ok" d="M725,474 h44 v14 h-40" fill="none" marker-end="url(#mOk)"/>
+
+    <text class="msg" x="895" y="500">SUMMARIZING · LlmEnricher.enrich() — per-unit try/catch, skipped if 0 selected</text>
+    <line class="l-sim" x1="725" y1="504" x2="1060" y2="504" marker-end="url(#mSim)"/>
+    <text class="note" x="1000" y="518">stub (default) · Ollama · OpenAI · Gemini → FindingWriter.addAiFindings(AI) + llm_call row/unit · provider down ⇒ static-only</text>
+
+    <text class="msg" x="950" y="544">SCORING · severityCounts() + HealthScorer v1</text>
+    <line class="l-ok" x1="725" y1="548" x2="1170" y2="548" marker-end="url(#mOk)"/>
+    <text class="note" x="950" y="562">clamp(100 − (crit×8 + maj×3 + min×1)/KLOC − complexityPenalty≤20)</text>
+
+    <text class="msg" x="595" y="588">markComplete(score) | markFailed(reason) — terminal-guarded</text>
+    <line class="l-ok" x1="725" y1="592" x2="470" y2="592" marker-end="url(#mOk)"/>
+
+    <text class="msg" x="787" y="618">release() workspace — finally</text>
+    <line class="l-ok" x1="725" y1="622" x2="845" y2="622" marker-end="url(#mOk)"/>
+
+    <text class="msg" x="660" y="648">XACK — finally, even on failure (poison-safe)</text>
+    <line class="l-ok" x1="725" y1="652" x2="600" y2="652" marker-end="url(#mOk)"/>
+
+    <!-- PHASE C -->
+    <text class="phase" x="20" y="682">C · LIVE PROGRESS — any web JVM (live)</text>
+    <line class="phase-rule" x1="20" y1="688" x2="1220" y2="688"/>
+
+    <text class="msg" x="465" y="704">Pub/Sub → ProgressSubscriber → SseEmitterRegistry</text>
+    <line class="l-ok" x1="595" y1="708" x2="340" y2="708" marker-end="url(#mOk)"/>
+
+    <text class="msg" x="205" y="730">SSE "progress" events — terminal status closes the stream</text>
+    <line class="l-ok" x1="335" y1="734" x2="80" y2="734" marker-end="url(#mOk)"/>
+
+    <!-- PHASE D -->
+    <text class="phase" x="20" y="768">D · READ THE RESULTS — Chronicle read-side (live)</text>
+    <line class="phase-rule" x1="20" y1="774" x2="1220" y2="774"/>
+
+    <text class="msg" x="205" y="790">GET /api/v1/analyses — run history, tenant-scoped</text>
+    <line class="l-ok" x1="75" y1="794" x2="330" y2="794" marker-end="url(#mOk)"/>
+
+    <text class="msg" x="205" y="820">GET /analyses/{id}/files · /files/{fileId}</text>
+    <line class="l-ok" x1="75" y1="824" x2="330" y2="824" marker-end="url(#mOk)"/>
+    <text class="note" x="205" y="838">DashboardController — ownership check first; not-yours = 404, never 403</text>
+
+    <text class="msg" x="400" y="864">read file_result · code_unit · issue_finding</text>
+    <line class="l-acc" x1="335" y1="868" x2="460" y2="868" marker-end="url(#mAcc)"/>
+    <text class="note" x="400" y="882">conductor AnalysisQuery + prism AnalysisResultQuery</text>
+
+    <text class="msg" x="205" y="908">FileDetail{path, source, findings STATIC+AI}</text>
+    <line class="l-ret" x1="335" y1="912" x2="80" y2="912" marker-end="url(#mAcc)"/>
+    <text class="note" x="205" y="926">source text was persisted at PARSING — the dashboard outlives the deleted workspace</text>
+  </svg>
+  </div>
+</section>
+
+<!-- ══════════════════ AUTH ══════════════════ -->
+<section>
+  <h2>3 · Identity flows</h2>
+  <p class="lead">Stateless JWT — the token is self-contained, so no user lookup happens per request. All three flows are live.</p>
+  <div class="flows">
+    <div class="flow">
+      <h3>Register <span class="chip live">LIVE</span></h3>
+      <ol>
+        <li><b><code>POST /api/v1/auth/register</code></b> {email, password ≥ 8, tenantName}</li>
+        <li>email exists → <b>409 <code>EMAIL_ALREADY_REGISTERED</code></b></li>
+        <li>else create <b>Tenant</b> + first <b>User as ADMIN</b> (BCrypt) — one transaction</li>
+        <li>issue <b>JWT {sub, tenantId, role}</b>, HS256, 60 min → <code>{token, "Bearer"}</code></li>
+      </ol>
+    </div>
+    <div class="flow">
+      <h3>Login <span class="chip live">LIVE</span></h3>
+      <ol>
+        <li><b><code>POST /api/v1/auth/login</code></b> {email, password}</li>
+        <li>unknown email <b>and</b> wrong password → identical <b>401 <code>INVALID_CREDENTIALS</code></b></li>
+        <li>BCrypt match → fresh JWT</li>
+      </ol>
+    </div>
+    <div class="flow">
+      <h3>Every request <span class="chip live">LIVE</span></h3>
+      <ol>
+        <li><code>Authorization: Bearer …</code> → <b>JwtAuthFilter</b> parses &amp; verifies</li>
+        <li>SSE exception: no header possible → <b><code>?access_token=</code></b> accepted, but only for URIs ending <code>/events</code></li>
+        <li>valid → <b>PraxisPrincipal</b> in SecurityContext; invalid → context cleared → <b>401</b></li>
+        <li>modules read tenant via <b><code>IdentityFacade.currentTenantId()</code></b> — never from the request body</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ STATE MACHINE ══════════════════ -->
+<section>
+  <h2>4 · Analysis state machine</h2>
+  <div class="states">
+    <span class="state neutral">QUEUED</span><span class="arr">→</span>
+    <span class="state live">FETCHING</span><span class="arr">→</span>
+    <span class="state live">PARSING</span><span class="arr">→</span>
+    <span class="state live">ANALYZING</span><span class="arr">→</span>
+    <span class="state sim">SUMMARIZING</span><span class="arr">→</span>
+    <span class="state live">SCORING</span><span class="arr">→</span>
+    <span class="state neutral">COMPLETE</span>
+    <span class="arr" style="margin-left:10px">any stage ⇢</span>
+    <span class="state fail">FAILED</span>
+    <span class="note">Guards live in the <code>Analysis</code> aggregate: <code>advanceTo() / markComplete() / markFailed()</code> are no-ops once terminal — redelivered Redis jobs can never move a finished analysis backwards. Failed analyses are terminal; there is no auto-retry (XAUTOCLAIM reclaim is Phase-2 hardening). SUMMARIZING is amber because its engine is config-selected (stub by default) — and it degrades gracefully: an unreachable provider never fails the analysis, it just completes static-only.</span>
+  </div>
+</section>
+
+<!-- ══════════════════ ROADMAP ══════════════════ -->
+<section>
+  <h2>5 · Build order from here</h2>
+  <p class="lead">Phase 1 is done — pipeline, LLM providers, and console all live and smoke-tested end to end. What remains, in the order that unlocks the most:</p>
+  <div class="steps">
+    <div class="step first">
+      <span class="num">01</span><span class="what">cache · resilience</span>
+      <span class="why">Redis response cache keyed <code>sha256(src + promptVersion + model)</code> (set <code>cache_hit=true</code> on hits — start actually reading <code>promptVersion</code>), Resilience4j retry + circuit breaker around the client (graceful degradation already exists), and a price book mapping (provider, model, tokens) → <code>cost_cents</code>.</span>
+    </div>
+    <div class="step">
+      <span class="num">02</span><span class="what">recall · ledger</span>
+      <span class="why">Phase 2: pgvector embeddings + chat Q&amp;A grounded in code units; token metering + BudgetGuard taking over the <code>llm_call</code> table from Cortex. Tables already exist in V1.</span>
+    </div>
+    <div class="step">
+      <span class="num">03</span><span class="what">hardening</span>
+      <span class="why">Env-only JWT secret &amp; DB password, <code>ddl-auto: validate</code>, CORS for the console, user invites, <code>XAUTOCLAIM</code> reclaim for crashed workers, Markdown/PDF export, <code>code_residency = LOCAL_ONLY</code> forcing Ollama-only routing.</span>
+    </div>
+  </div>
+  <p class="lead" style="margin-top:14px">Small cleanups spotted in review: <code>ServiceCommonConstant</code> stage messages duplicate the literals hard-coded in <code>AnalysisPipeline</code> (pick one home); <code>CortexProperties.promptVersion</code> is defined but never read; <code>com.praxis</code> logs at DEBUG — drop to INFO for production.</p>
+</section>
+
+</div>
