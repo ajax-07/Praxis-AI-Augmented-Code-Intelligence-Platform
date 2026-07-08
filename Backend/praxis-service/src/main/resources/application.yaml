@@ -67,13 +67,13 @@ praxis:
     god-object-methods: 20     # classes with more methods than this are flagged
     god-object-loc: 400        # classes longer than this many lines are flagged
   cortex:
-    provider: ${CORTEX_PROVIDER:stub}   # stub (offline, no keys) | ollama | openai | gemini
+    provider: ${CORTEX_PROVIDER:ollama}   # stub (offline, no keys) | ollama | openai | gemini
     prompt-version: v1
     temperature: 0.2
     ollama:                              # local models — no key, no per-token cost
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
       model: ${OLLAMA_MODEL:qwen2.5-coder:7b}   # strong open code model; use :32b or deepseek-coder-v2 if the box allows
-      timeout-seconds: 60
+      timeout-seconds: ${OLLAMA_TIMEOUT_SECONDS:300}   # 7B on CPU is slow + first call loads the model; lower on GPU
     openai:
       base-url: https://api.openai.com/v1
       api-key: ${OPENAI_API_KEY:}
@@ -82,7 +82,7 @@ praxis:
     gemini:
       base-url: https://generativelanguage.googleapis.com/v1beta
       api-key: ${GEMINI_API_KEY:}
-      model: ${GEMINI_MODEL:gemini-1.5-pro}     # gemini-1.5-flash for speed/cost; newer models are drop-in
+      model: ${GEMINI_MODEL:gemini-2.5-flash}     # gemini-1.5-flash for speed/cost; newer models are drop-in
       timeout-seconds: 60
 # --- Logging -------------------------------------------------------------
 # com.praxis at DEBUG traces the full business flow. Every flow log carries the

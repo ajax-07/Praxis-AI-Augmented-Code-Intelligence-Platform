@@ -1,0 +1,8 @@
+# Keep the build context small and reproducible — never ship host build output.
+build/
+out/
+.gradle/
+.idea/
+*.iml
+*.log
+HELP.md

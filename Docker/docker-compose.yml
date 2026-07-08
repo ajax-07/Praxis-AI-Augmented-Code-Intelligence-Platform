@@ -1,53 +1,161 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Praxis — Docker services.
+#
+#   docker compose up -d                     → INFRA ONLY: postgres · redis · ollama
+#                                              (then run backend + frontend locally)
+#   docker compose --profile app up -d        → also run backend + frontend in containers
+#   docker compose --profile app up -d backend    → run just the backend container
+#   docker compose --profile app up -d frontend   → run just the frontend container
+#
+# Default `up` starts only the infrastructure, so local dev ports (8145 backend,
+# 5173 frontend) stay free. The app services live behind the "app" profile and
+# use the SAME host ports as local dev — so you never run both at once.
+#
+# Containers reach each other by SERVICE NAME (postgres, redis, ollama, backend).
+# ─────────────────────────────────────────────────────────────────────────────
 services:
+  # ---- PostgreSQL (relational store + pgvector) -----------------------------
   postgres:
     image: pgvector/pgvector:pg16
     container_name: praxis-pgdb
     restart: unless-stopped
-    environment: { POSTGRES_DB: praxis_db, POSTGRES_USER: praxis_user, POSTGRES_PASSWORD: ax8EHjuZU56aerhsfseDbpssdpr }
-    volumes: [ "pgdata:/var/lib/postgresql/data" ]
+    environment:
+      POSTGRES_DB: praxis_db
+      POSTGRES_USER: praxis_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-ax8EHjuZU56aerhsfseDbpssdpr}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U praxis_user -d praxis_db"]
       interval: 5s
+      timeout: 3s
       retries: 10
 
+  # ---- Redis (job stream + progress pub/sub) --------------------------------
   redis:
     image: redis:7-alpine
     container_name: praxis-redis
+    restart: unless-stopped
     ports:
-      - "6379:6379"  
+      - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
+      timeout: 3s
       retries: 10
 
-  # backend:
-  #   build: { context: .., dockerfile: docker/backend.Dockerfile }
-  #   environment:
-  #     DB_URL: jdbc:postgresql://postgres:5432/praxis   # service name, not localhost!
-  #     DB_USER: praxis
-  #     DB_PASSWORD: praxis123
-  #     REDIS_HOST: redis
-  #     JWT_SECRET: ${JWT_SECRET}
-  #     LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
-  #     OLLAMA_URL: http://ollama:11434
-  #   depends_on:
-  #     postgres: { condition: service_healthy }
-  #     redis:    { condition: service_healthy }
-  #   ports: [ "8145:8145" ]
-
-  # frontend:
-  #   build: { context: .., dockerfile: docker/frontend.Dockerfile }
-  #   depends_on: [ backend ]
-  #   ports: [ "3000:80" ]
-
-  ollama:                       # optional local AI
+  # ---- Ollama (local LLM provider) ------------------------------------------
+  # Server only — no model is bundled. To use a real local model, pull one once:
+  #   docker compose exec ollama ollama pull qwen2.5-coder:7b
+  # then run the backend with CORTEX_PROVIDER=ollama. Without it, the backend's
+  # offline stub reviewer is used, so nothing here is required to run the app.
+  ollama:
     image: ollama/ollama
-    container_name: parxis-ollama
-    ports: [ "11434:11434" ]    # host-run backend reaches it at localhost:11434
-    volumes: [ "ollama:/root/.ollama" ]
+    container_name: praxis-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
 
-volumes: { pgdata: {}, redis_data: {}, ollama: {} }
+  # ---- Ollama model pull (OPTIONAL) — profile "model" -----------------------
+  # One-shot helper: waits for ollama, pulls the model, exits. Behind its own
+  # profile so it never runs by default. Run it on demand, like the app services:
+  #   docker compose --profile model up ollama-coder
+  # Override the model with OLLAMA_MODEL (default qwen2.5-coder:7b, ~4.7 GB).
+  ollama-coder:
+    image: ollama/ollama
+    container_name: praxis-ollama-qwen2.5-coder
+    profiles: ["model"]
+    depends_on:
+      - ollama
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5-coder:7b}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        until ollama list >/dev/null 2>&1; do echo "waiting for ollama..."; sleep 2; done
+        echo "pulling $${OLLAMA_MODEL}..."
+        ollama pull "$${OLLAMA_MODEL}"
+    restart: "no"
+
+  # ---- Backend (Spring Modulith) — profile "app" ----------------------------
+  backend:
+    profiles: ["app"]
+    build:
+      context: ../Backend/praxis-service
+      dockerfile: Dockerfile
+    container_name: praxis-backend
+    restart: unless-stopped
+    environment:
+      # Spring relaxed-binding env vars override application.yaml, pointing the
+      # app at the compose SERVICE NAMES instead of localhost.
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/praxis_db
+      SPRING_DATASOURCE_USERNAME: praxis_user
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-ax8EHjuZU56aerhsfseDbpssdpr}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:-db826a2d080f0dc788d55208b8a7aadcada1243c5d844c7eefe1837578bfb361}
+      CORTEX_PROVIDER: ${CORTEX_PROVIDER:-stub}   # stub | ollama | openai | gemini
+      OLLAMA_BASE_URL: http://ollama:11434
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    ports:
+      - "8145:8145"                               # same port as local bootRun
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ---- Frontend (nginx serving the React build) — profile "app" -------------
+  frontend:
+    profiles: ["app"]
+    build:
+      context: ../Frontend/praxis-console
+      dockerfile: Dockerfile
+    container_name: praxis-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"                                 # same port as local `npm run dev`
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  pgdata: {}
+  redis_data: {}
+  ollama: {}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# HOT RELOADING (dev only — commented out on purpose)
+#
+# The `app` services above bake code into images (production). For live reload,
+# run with an override that bind-mounts source and swaps the command:
+#
+#     docker compose --profile app -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# Create Docker/docker-compose.dev.yml with:
+#
+#   services:
+#     backend:
+#       image: eclipse-temurin:21-jdk
+#       working_dir: /app
+#       volumes:
+#         - ../Backend/praxis-service:/app
+#         - gradle_cache:/root/.gradle
+#       command: ./gradlew bootRun --continuous   # + spring-boot-devtools in build.gradle
+#     frontend:
+#       image: node:22-alpine
+#       working_dir: /app
+#       volumes:
+#         - ../Frontend/praxis-console:/app
+#       command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+#   volumes:
+#     gradle_cache: {}
+# ═══════════════════════════════════════════════════════════════════════════════
