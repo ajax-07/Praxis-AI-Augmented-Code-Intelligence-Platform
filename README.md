@@ -8,6 +8,34 @@
 
 ---
 
+## ⚡ Quick start
+
+Praxis needs three infrastructure services (Postgres, Redis, Ollama) running in Docker; you then run the backend and frontend — **locally** for development, or **in containers** if you just want to use the app. Either way the ports are identical.
+
+**1. Start the infrastructure** (Docker Desktop + Git required):
+
+```bash
+git clone <this-repo> && cd Praxis/Docker
+docker compose up -d          # postgres · redis · ollama only
+```
+
+**2. Run the app** — pick one:
+
+```bash
+# A) Locally (for development)
+cd ../Backend/praxis-service && ./gradlew bootRun          # API → http://localhost:8145
+cd ../Frontend/praxis-console && npm install && npm run dev # UI  → http://localhost:5173
+
+# B) In containers (just to use it)
+docker compose --profile app up -d --build                 # UI → http://localhost:5173
+```
+
+Open the UI → *Create a workspace* → paste a Java repo URL (e.g. `https://github.com/google/gson.git`) → watch it analyze. No API keys needed (an offline stub reviewer runs by default).
+
+Full details in the [Setup guide](#9-setup-guide-zero-to-running). Component docs: [backend](Backend/praxis-service/README.md) · [frontend](Frontend/praxis-console/README.md).
+
+---
+
 ## Table of contents
 
 1. [What it does](#1-what-it-does)
@@ -211,72 +239,95 @@ App-tuning keys under `praxis.*`: `analysis.risk-threshold` (60 — the funnel),
 
 ## 9. Setup guide (zero to running)
 
+The model is simple: **infrastructure always runs in Docker; the app (backend + frontend) you run either locally or in containers — the ports are the same in both**, so you never juggle two sets of URLs and you never run the same service twice.
+
+| Service | Port | Runs in |
+|---|---|---|
+| Frontend (UI) | **5173** | local `npm run dev` **or** container |
+| Backend (API) | **8145** | local `bootRun` **or** container |
+| PostgreSQL | 5432 | Docker (always) |
+| Redis | 6379 | Docker (always) |
+| Ollama | 11434 | Docker (always) |
+
 ### Prerequisites
 
-- **JDK 21** (Gradle toolchain expects it), **Node 20+**, **Docker Desktop**, **Git**.
-- Optional for real AI: [Ollama](https://ollama.com) via Docker (below) **or** an OpenAI/Gemini API key. Without either, the offline stub reviewer runs — no keys needed.
+- **Docker Desktop** and **Git** — always.
+- For running the app locally: **JDK 21** and **Node 20+**.
+- For real AI (optional): a pulled Ollama model or an OpenAI/Gemini key. Without either, the offline stub reviewer runs — no keys needed.
 
-### Step 1 — infrastructure (Postgres, Redis, Ollama)
+### Step 1 — start the infrastructure (always)
 
 ```bash
 cd Docker
-docker compose up -d
-# services: praxis-pgdb (5432, pgvector/pg16), praxis-redis (6379), parxis-ollama (11434)
-
-# one-time: pull the local code-review model (~4.7 GB)
-docker exec parxis-ollama ollama pull qwen2.5-coder:7b
+docker compose up -d        # postgres · redis · ollama only
 ```
 
-### Step 2 — backend
+That's all the default `up` does — no app containers, so your local ports (8145, 5173) stay free.
+
+### Step 2 — run the app
+
+**Option A — locally (for development):**
 
 ```bash
+# backend
 cd Backend/praxis-service
+./gradlew bootRun            # API → http://localhost:8145
 
-# choose your LLM (or omit for the offline stub)
-# PowerShell:  $env:CORTEX_PROVIDER = "ollama"
-# bash:        export CORTEX_PROVIDER=ollama
-
-./gradlew bootRun
+# frontend (new terminal)
+cd Frontend/praxis-console
+npm install && npm run dev   # UI → http://localhost:5173
 ```
 
-On a healthy start you'll see **Flyway migrating to version 2**, `Conductor stream container started on group 'praxis-workers'`, and (if ollama) `Cortex using Ollama provider: model=qwen2.5-coder:7b`. API is on **http://localhost:8145**.
-
-### Step 3 — frontend
+**Option B — in containers (just to use the app):**
 
 ```bash
-cd Frontend/praxis-console
-npm install
-npm run dev
-# UI on http://localhost:5173 — dev server proxies /api → :8145 automatically
+cd Docker
+docker compose --profile app up -d --build      # UI → http://localhost:5173, API → :8145
+# or one at a time:
+docker compose --profile app up -d backend
+docker compose --profile app up -d frontend
 ```
 
-### Step 4 — first analysis (2 minutes)
+> **Don't mix A and B for the same service** — they share the port on purpose. If a container already holds 8145/5173, stop it (`docker compose --profile app down`) before running that service locally, and vice-versa. This is exactly what prevents the "port already in use" confusion.
 
-1. Open http://localhost:5173 → **Create a workspace** (this registers your tenant + admin user).
-2. **New analysis** → GitHub tab → paste a small public Java repo, e.g. `https://github.com/google/gson.git` → submit.
+### Step 3 — first analysis (2 minutes)
+
+1. Open **http://localhost:5173** → **Create a workspace** (registers your tenant + admin user).
+2. **New analysis** → GitHub tab → paste a small public Java repo, e.g. `https://github.com/google/gson.git` (or use the **Upload zip** tab).
 3. Watch the pipeline stepper stream live (QUEUED → … → SCORING).
-4. On COMPLETE: health score badge, file tree (badges = finding counts), click a badged file → code with highlighted lines, findings on the right — expand an AI finding for the model's refactoring suggestion.
+4. On COMPLETE: health score badge, file tree (badges = finding counts), click a badged file → code with highlighted lines, findings on the right — expand an AI finding for the model's suggestion.
 
-Prefer the zip path? Use the **Upload zip** tab, or try `test-samples/nasty-sample.zip` (deliberately awful code guaranteed to pass the risk funnel). `test-samples/test-llm.ps1` is a scripted end-to-end LLM verification for Windows.
+### Choosing the LLM (optional)
 
-### Step 5 (optional) — fully dockerized frontend
+The backend picks its engine from `CORTEX_PROVIDER` (default `stub` — an offline reviewer, no model, no keys). There is **no auto-fallback**: if a real provider is unreachable/keyless, analyses still complete but **static-only**, never faking it with the stub.
 
-```bash
-cd Frontend/praxis-console
-docker build -t praxis-console .
-docker run -p 3000:80 --network <compose-network> praxis-console
-# nginx serves the SPA and proxies /api → backend:8145 (see nginx.conf)
-```
+- **Stub (default):** nothing to do.
+- **Local model (Ollama):** pull once (`OLLAMA_MODEL` overrides the default `qwen2.5-coder:7b`, ~4.7 GB), then run the backend with the ollama provider:
+  ```bash
+  docker compose --profile model up ollama-coder            # one-shot pull helper
+  # (equivalent: docker compose exec ollama ollama pull qwen2.5-coder:7b)
+  # local:      CORTEX_PROVIDER=ollama ./gradlew bootRun
+  # container:  CORTEX_PROVIDER=ollama docker compose --profile app up -d --build backend
+  ```
+- **Cloud (OpenAI / Gemini):** no download — set the provider + key, e.g. `CORTEX_PROVIDER=openai OPENAI_API_KEY=sk-...` before the run command above.
 
-### Verifying the LLM is really wired (not the stub)
-
+Confirm which engine answered:
 ```bash
 docker exec praxis-pgdb psql -U praxis_user -d praxis_db \
-  -c "SELECT provider, model, tokens_in, tokens_out FROM llm_call ORDER BY created_at DESC LIMIT 5;"
-# provider must read OLLAMA / OPENAI / GEMINI — "STUB" means the fallback answered
+  -c "SELECT provider, model FROM llm_call ORDER BY created_at DESC LIMIT 3;"
+# STUB = offline reviewer · OLLAMA / OPENAI / GEMINI = a real model ran
 ```
 
-Failure-path check: stop Ollama (`docker stop parxis-ollama`) and run another analysis — it must still COMPLETE with static-only findings and a log line `LLM provider unavailable — degrading … to static-only`.
+### Stop / reset
+
+```bash
+docker compose --profile app down      # stop everything (keep data)
+docker compose down -v                  # also wipe DB / Redis / Ollama volumes (clean slate)
+```
+
+> Tip: put `DB_PASSWORD`, `JWT_SECRET`, `CORTEX_PROVIDER`, and any API keys in a `Docker/.env` file so you don't repeat them on the command line.
+>
+> **Hot reloading inside containers** is documented (commented) at the bottom of `Docker/docker-compose.yml`.
 
 ---
 
@@ -300,12 +351,15 @@ Frontend: `npm run build` runs `tsc` in strict mode as the type gate.
 ```
 Praxis/
 ├── Backend/praxis-service/          # the Spring Modulith (one JAR)
+│   ├── Dockerfile                   # multi-stage: JDK build → JRE runtime (non-root)
 │   └── src/main/java/com/praxis/
 │       ├── identity/ intake/ prism/ conductor/ cortex/ verdict/ chronicle/
 │       ├── recall/ ledger/          # Phase-2 placeholders
 │       └── common/                  # shared kernel
-├── Frontend/praxis-console/         # React 19 + Vite + TS (see src/{api,hooks,pages,components,context,types,utils})
-├── Docker/docker-compose.yml        # postgres + redis + ollama (infra for local dev)
+├── Frontend/praxis-console/         # React 19 + Vite + TS (has its own README)
+│   ├── Dockerfile                   # multi-stage: Node build → nginx serve + /api proxy
+│   └── nginx.conf                   # SPA fallback + SSE-friendly reverse proxy
+├── Docker/docker-compose.yml        # infra by default; app via --profile app (see §9)
 ├── Documentations/                  # HLD, LLD, architecture spec, praxis-flow-map.html (living diagram)
 └── test-samples/                    # guaranteed-risky sample zip + scripted LLM smoke test
 ```
