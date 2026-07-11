@@ -1,5 +1,8 @@
 package com.praxis.identity.internal;
 
+import com.praxis.identity.api.dto.TokenRefreshRequest;
+import com.praxis.identity.domain.RefreshToken;
+import io.jsonwebtoken.JwtException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.praxis.identity.api.dto.AuthResponse;
@@ -13,6 +16,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -30,6 +34,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final RefreshTokenRepository refreshTokenRepository;
 
     /**
      * Creates a new Tenant and its first User (always ADMIN of that tenant),
@@ -55,11 +60,13 @@ public class AuthService {
         );
         userRepository.save(user);
 
-        String token = jwtService.issue(user.getId(), tenant.getId(), user.getRole().name());
+        String accessToken = jwtService.generateAccessToken(user);
+        String refreshToken = jwtService.generateRefreshToken(user);
         log.info("Registration complete: userId={} is ADMIN of new tenantId={}", user.getId(), tenant.getId());
-        return new AuthResponse(token);
+        return new AuthResponse(accessToken, refreshToken);
     }
 
+    @Transactional
     public AuthResponse login(LoginRequest request) {
         log.debug("Login attempt for email={}", request.email());
         User user = userRepository.findByEmail(request.email())
@@ -73,8 +80,50 @@ public class AuthService {
             throw new InvalidCredentialsException();
         }
 
-        String token = jwtService.issue(user.getId(), user.getTenantId(), user.getRole().name());
+         String accessToken = jwtService.generateAccessToken(user);
+        String refreshToken = jwtService.generateRefreshToken(user);
         log.info("Login success: userId={} tenantId={}", user.getId(), user.getTenantId());
-        return new AuthResponse(token);
+        return new AuthResponse(accessToken, refreshToken);
     }
+
+    /**
+     * Exchanges a valid refresh token for a fresh access + refresh pair (rotation).
+     * A refresh token is accepted only if it (1) exists in the store — access
+     * tokens are never persisted, so this also stops an access token being used
+     * here — (2) has a valid signature, and (3) hasn't expired. Any failure clears
+     * the offending token and returns 401, forcing a clean re-login.
+     */
+    @Transactional
+    public AuthResponse refresh(TokenRefreshRequest request) {
+        String presented = request.getRefreshToken();
+        if (presented == null || presented.isBlank()) {
+            throw new InvalidCredentialsException();
+        }
+
+        RefreshToken stored = refreshTokenRepository.findByToken(presented)
+                .orElseThrow(() -> {
+                    log.warn("Refresh rejected — unknown or already-rotated token");
+                    return new InvalidCredentialsException();
+                });
+
+        try {
+            jwtService.parse(presented);                       // signature + expiry
+            if (stored.getExpiration().isBefore(Instant.now())) {
+                throw new JwtException("refresh token past its stored expiry");
+            }
+        } catch (JwtException e) {
+            log.warn("Refresh rejected — invalid/expired token for userId={}: {}",
+                    stored.getUser().getId(), e.getMessage());
+            refreshTokenRepository.delete(stored);             // purge the dead token
+            throw new InvalidCredentialsException();
+        }
+
+        // Rotate: generateRefreshToken() clears the user's old token (incl. this one).
+        User user = stored.getUser();
+        String accessToken = jwtService.generateAccessToken(user);
+        String refreshToken = jwtService.generateRefreshToken(user);
+        log.info("Refreshed tokens for userId={}", user.getId());
+        return new AuthResponse(accessToken, refreshToken);
+    }
+
 }

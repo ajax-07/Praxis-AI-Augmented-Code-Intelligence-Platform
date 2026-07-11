@@ -293,7 +293,7 @@ docker compose --profile app up -d frontend
 ### Step 3 — first analysis (2 minutes)
 
 1. Open **http://localhost:5173** → **Create a workspace** (registers your tenant + admin user).
-2. **New analysis** → GitHub tab → paste a small public Java repo, e.g. `https://github.com/google/gson.git` (or use the **Upload zip** tab).
+2. **New analysis** → GitHub tab → paste a small public Java repo, e.g. `https://github.com/google/gson.git` or `https://github.com/MicrosoftDocs/pipelines-java`(single java file repo) (or use the **Upload zip** tab).
 3. Watch the pipeline stepper stream live (QUEUED → … → SCORING).
 4. On COMPLETE: health score badge, file tree (badges = finding counts), click a badged file → code with highlighted lines, findings on the right — expand an AI finding for the model's suggestion.
 

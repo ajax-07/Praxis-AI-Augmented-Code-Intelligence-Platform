@@ -2,6 +2,7 @@
 export interface PraxisClaims {
   sub: string; // userId
   tenantId: string;
+  user: string
   role: 'ADMIN' | 'MEMBER';
   exp: number; // seconds since epoch
 }

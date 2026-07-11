@@ -1,6 +1,8 @@
 package com.praxis.common.exception;
 
 import com.praxis.common.dto.ApiError;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -17,6 +19,8 @@ import java.util.stream.Collectors;
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ApiError> handleApiException(ApiException ex) {
@@ -35,8 +39,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleUnexpected(Exception ex) {
+        // A blind 500 is undebuggable — always log the trace with the traceId we
+        // return, so a support request ("traceId X") maps straight to a log line.
+        String traceId = newTraceId();
+        log.error("Unhandled exception [traceId={}]", traceId, ex);
         return ResponseEntity.internalServerError()
-                .body(new ApiError("INTERNAL_ERROR", "Something went wrong. Please try again.", newTraceId()));
+                .body(new ApiError("INTERNAL_ERROR", "Something went wrong. Please try again.", traceId));
     }
 
     private String newTraceId() {

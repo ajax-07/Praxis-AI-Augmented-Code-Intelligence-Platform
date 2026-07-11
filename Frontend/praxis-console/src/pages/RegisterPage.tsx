@@ -22,7 +22,7 @@ export default function RegisterPage() {
   const mutation = useMutation({
     mutationFn: register,
     onSuccess: (response) => {
-      auth.login(response.token);
+      auth.login(response.accessToken, response.refreshToken);
       navigate('/', { replace: true });
     },
   });

@@ -12,7 +12,12 @@ CREATE TABLE tenant (
                         name           TEXT NOT NULL,
                         code_residency TEXT NOT NULL DEFAULT 'CLOUD_ALLOWED',
                         plan           TEXT NOT NULL DEFAULT 'FREE',
-                        created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+
+                        -- auditing fields
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                        updated_at TIMESTAMPTZ,
+                        created_by VARCHAR(255),
+                        updated_by VARCHAR(255)
 );
 
 CREATE TABLE app_user (
@@ -21,7 +26,12 @@ CREATE TABLE app_user (
                           email         TEXT NOT NULL UNIQUE,
                           password_hash TEXT NOT NULL,
                           role          TEXT NOT NULL DEFAULT 'MEMBER',
-                          created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+
+                          -- auditing fields
+                          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                          updated_at TIMESTAMPTZ,
+                          created_by VARCHAR(255),
+                          updated_by VARCHAR(255)
 );
 
 CREATE INDEX idx_app_user_tenant ON app_user(tenant_id);
@@ -32,7 +42,12 @@ CREATE TABLE repository (
                             name        TEXT NOT NULL,
                             source_type TEXT NOT NULL,
                             source_ref  TEXT NOT NULL,
-                            created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+
+                            -- auditing fields
+                            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                            updated_at TIMESTAMPTZ,
+                            created_by VARCHAR(255),
+                            updated_by VARCHAR(255)
 );
 
 CREATE TABLE analysis (
@@ -45,7 +60,12 @@ CREATE TABLE analysis (
                           error_message  TEXT,
                           started_at     TIMESTAMPTZ,
                           completed_at   TIMESTAMPTZ,
-                          created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+
+                          -- auditing fields
+                          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                          updated_at TIMESTAMPTZ,
+                          created_by VARCHAR(255),
+                          updated_by VARCHAR(255)
 );
 
 CREATE TABLE file_result (
@@ -54,7 +74,14 @@ CREATE TABLE file_result (
                              path        TEXT NOT NULL,
                              loc         INT,
                              complexity  INT,
-                             class_count INT
+                             class_count INT,
+                             source      TEXT,
+
+                             -- auditing fields
+                             created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                             updated_at TIMESTAMPTZ ,
+                             created_by VARCHAR(255),
+                             updated_by VARCHAR(255)
 );
 
 CREATE TABLE code_unit (
@@ -66,7 +93,13 @@ CREATE TABLE code_unit (
                            start_line     INT,
                            end_line       INT,
                            source_hash    TEXT NOT NULL,
-                           risk_score     INT
+                           risk_score     INT,
+
+                           -- auditing fields
+                           created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                           updated_at TIMESTAMPTZ,
+                           created_by VARCHAR(255),
+                           updated_by VARCHAR(255)
 );
 
 CREATE TABLE issue_finding (
@@ -79,12 +112,24 @@ CREATE TABLE issue_finding (
                                message       TEXT NOT NULL,
                                suggestion    TEXT,
                                start_line    INT,
-                               end_line      INT
+                               end_line      INT,
+
+                               -- auditing fields
+                               created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                               updated_at TIMESTAMPTZ,
+                               created_by VARCHAR(255),
+                               updated_by VARCHAR(255)
 );
 
 CREATE TABLE embedding (
                            code_unit_id UUID PRIMARY KEY REFERENCES code_unit(id),
-                           vector       vector(768)
+                           vector       vector(768),
+
+                           -- auditing fields
+                           created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                           updated_at TIMESTAMPTZ,
+                           created_by VARCHAR(255),
+                           updated_by VARCHAR(255)
 );
 
 CREATE TABLE llm_call (
@@ -98,5 +143,10 @@ CREATE TABLE llm_call (
                           tokens_out  INT NOT NULL,
                           cost_cents  INT NOT NULL,
                           cache_hit   BOOLEAN NOT NULL DEFAULT false,
-                          created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+
+                          -- auditing fields
+                          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                          updated_at TIMESTAMPTZ,
+                          created_by VARCHAR(255),
+                          updated_by VARCHAR(255)
 );
