@@ -22,6 +22,7 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      timeout: 300s
       # Redis is used via templates (streams + pub/sub), never as a Spring Data
       # repository store — this stops Redis from scanning the 8 JPA repositories.
       repositories:
@@ -47,7 +48,8 @@ management:
 praxis:
   jwt:
     secret: ${JWT_SECRET:db826a2d080f0dc788d55208b8a7aadcada1243c5d844c7eefe1837578bfb361}
-    ttl-minutes: 60
+    jwtExpiration: 30
+    refreshExpiration: 10080 # 7-days 7*24*60
   analysis:
     risk-threshold: 60
     max-repo-size-mb: 200

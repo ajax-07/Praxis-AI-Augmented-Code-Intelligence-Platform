@@ -1,5 +1,6 @@
 package com.praxis.conductor.domain;
 
+import com.praxis.common.domain.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -29,7 +30,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Repository {
+public class Repository extends BaseEntity {
 
     @Id
     private UUID id;
@@ -46,9 +47,6 @@ public class Repository {
 
     @Column(name = "source_ref", nullable = false)
     private String sourceRef;
-
-    @Column(name = "created_at", nullable = false)
-    private Instant createdAt = Instant.now();
 
     public Repository(UUID id, UUID tenantId, String name, SourceType sourceType, String sourceRef) {
         this.id = id;

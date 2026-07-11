@@ -1,5 +1,6 @@
 package com.praxis.prism.domain;
 
+import com.praxis.common.domain.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -20,7 +21,7 @@ import java.util.UUID;
 @Table(name = "code_unit")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class CodeUnit {
+public class CodeUnit extends BaseEntity {
 
     @Id
     private UUID id;

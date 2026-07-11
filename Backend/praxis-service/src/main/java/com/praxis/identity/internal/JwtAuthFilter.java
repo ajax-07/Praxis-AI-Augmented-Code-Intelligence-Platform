@@ -1,5 +1,6 @@
 package com.praxis.identity.internal;
 
+import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.praxis.identity.api.PraxisPrincipal;
@@ -45,7 +46,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     protected void doFilterInternal(
             HttpServletRequest request,
             HttpServletResponse response,
-            FilterChain filterChain
+            @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
 
         String token = resolveToken(request);
@@ -84,9 +85,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private void authenticate(Claims claims) {
         UUID userId = UUID.fromString(claims.getSubject());
         UUID tenantId = UUID.fromString(claims.get("tenantId", String.class));
+        String user = claims.get("user", String.class);
         String role = claims.get("role", String.class);
 
-        PraxisPrincipal principal = new PraxisPrincipal(userId, tenantId, role);
+        PraxisPrincipal principal = new PraxisPrincipal(userId, tenantId, user, role);
         List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
 
         var authentication = new UsernamePasswordAuthenticationToken(principal, null, authorities);

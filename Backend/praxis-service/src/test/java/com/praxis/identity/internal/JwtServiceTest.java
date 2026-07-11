@@ -16,14 +16,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class JwtServiceTest {
 
     private final JwtService jwtService =
-            new JwtService("test-secret-must-be-at-least-32-characters-long", 60);
+            new JwtService("test-secret-must-be-at-least-32-characters-long", 60, 10080);
 
     @Test
     void issuesATokenAndParsesTheSameClaimsBackOut() {
         UUID userId = UUID.randomUUID();
         UUID tenantId = UUID.randomUUID();
 
-        String token = jwtService.issue(userId, tenantId, "ADMIN");
+        String token = jwtService.issue(userId, tenantId, "ADMIN", 15);
         Claims claims = jwtService.parse(token).getPayload();
 
         assertThat(claims.getSubject()).isEqualTo(userId.toString());
@@ -33,7 +33,7 @@ class JwtServiceTest {
 
     @Test
     void rejectsATamperedToken() {
-        String token = jwtService.issue(UUID.randomUUID(), UUID.randomUUID(), "MEMBER");
+        String token = jwtService.issue(UUID.randomUUID(), UUID.randomUUID(), "MEMBER", 15);
         String tampered = token.substring(0, token.length() - 4) + "abcd";
 
         assertThatThrownBy(() -> jwtService.parse(tampered))
@@ -42,7 +42,7 @@ class JwtServiceTest {
 
     @Test
     void rejectsSecretsShorterThan32Bytes() {
-        assertThatThrownBy(() -> new JwtService("too-short", 60))
+        assertThatThrownBy(() -> new JwtService("too-short", 15, 10080))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 }

@@ -1,5 +1,6 @@
 package com.praxis.prism.domain;
 
+import com.praxis.common.domain.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -18,7 +19,7 @@ import java.util.UUID;
 @Table(name = "file_result")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class FileResult {
+public class FileResult extends BaseEntity {
 
     @Id
     private UUID id;

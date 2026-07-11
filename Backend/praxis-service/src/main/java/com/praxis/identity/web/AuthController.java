@@ -3,6 +3,7 @@ package com.praxis.identity.web;
 import com.praxis.identity.api.dto.AuthResponse;
 import com.praxis.identity.api.dto.LoginRequest;
 import com.praxis.identity.api.dto.RegisterRequest;
+import com.praxis.identity.api.dto.TokenRefreshRequest;
 import com.praxis.identity.internal.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -34,5 +35,10 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refresh(@Valid @RequestBody TokenRefreshRequest request){
+        return ResponseEntity.ok(authService.refresh(request));
     }
 }

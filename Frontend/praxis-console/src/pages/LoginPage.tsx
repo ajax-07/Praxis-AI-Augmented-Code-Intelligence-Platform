@@ -21,7 +21,7 @@ export default function LoginPage() {
   const mutation = useMutation({
     mutationFn: login,
     onSuccess: (response) => {
-      auth.login(response.token);
+      auth.login(response.accessToken, response.refreshToken);
       navigate((location.state as { from?: string } | null)?.from ?? '/', { replace: true });
     },
   });

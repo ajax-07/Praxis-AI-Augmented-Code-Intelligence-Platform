@@ -1,7 +1,7 @@
 package com.praxis.identity.api.dto;
 
-public record AuthResponse(String token, String tokenType) {
-    public AuthResponse(String token) {
-        this(token, "Bearer");
+public record AuthResponse(String accessToken, String refreshToken, String tokenType) {
+    public AuthResponse(String accessToken, String refreshToken) {
+        this(accessToken, refreshToken, "Bearer");
     }
 }

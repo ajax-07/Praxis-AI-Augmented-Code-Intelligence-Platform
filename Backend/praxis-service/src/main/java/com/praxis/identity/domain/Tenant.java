@@ -2,6 +2,7 @@ package com.praxis.identity.domain;
 
 
 
+import com.praxis.common.domain.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -26,7 +27,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED) // required by JPA; use the constructor below in app code
-public class Tenant {
+public class Tenant extends BaseEntity {
 
     @Id
     private UUID id;
@@ -41,9 +42,6 @@ public class Tenant {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private TenantPlan plan = TenantPlan.FREE;
-
-    @Column(name = "created_at", nullable = false)
-    private Instant createdAt = Instant.now();
 
     public Tenant(UUID id, String name) {
         this.id = id;

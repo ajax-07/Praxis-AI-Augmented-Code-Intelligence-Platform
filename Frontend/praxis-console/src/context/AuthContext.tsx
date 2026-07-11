@@ -1,59 +1,97 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { setAuthToken, setUnauthorizedHandler } from '../api/client';
+import { refreshTokens } from '../api/auth.api';
+import { setAuthToken, setRefreshHandler, setUnauthorizedHandler } from '../api/client';
 import { decodeJwt, isExpired } from '../utils/jwt';
 import type { PraxisClaims } from '../utils/jwt';
 
-const STORAGE_KEY = 'praxis.token';
+const ACCESS_KEY = 'praxis.accessToken';
+const REFRESH_KEY = 'praxis.refreshToken';
+
+interface Session {
+  accessToken: string;
+  refreshToken: string;
+  claims: PraxisClaims | null;
+}
 
 interface AuthState {
-  token: string | null;
+  token: string | null; // access token — used by the SSE query-param auth
   claims: PraxisClaims | null;
-  login: (token: string) => void;
+  login: (accessToken: string, refreshToken: string) => void;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
 
-/** Reject stored tokens that are absent, garbled, or already expired. */
-function loadValidToken(): { token: string; claims: PraxisClaims } | null {
-  const token = localStorage.getItem(STORAGE_KEY);
-  if (!token) return null;
-  const claims = decodeJwt(token);
-  if (!claims || isExpired(claims)) {
-    localStorage.removeItem(STORAGE_KEY);
+function clearStorage(): void {
+  localStorage.removeItem(ACCESS_KEY);
+  localStorage.removeItem(REFRESH_KEY);
+}
+
+/**
+ * Restore a session on boot. We keep the user logged in as long as the REFRESH
+ * token is still alive (7 days) — an expired access token is fine, the API
+ * layer refreshes it on the first request. Only a dead/absent refresh token
+ * forces a real re-login.
+ */
+function loadSession(): Session | null {
+  const accessToken = localStorage.getItem(ACCESS_KEY);
+  const refreshToken = localStorage.getItem(REFRESH_KEY);
+  if (!accessToken || !refreshToken) {
+    clearStorage();
     return null;
   }
-  return { token, claims };
+  const refreshClaims = decodeJwt(refreshToken);
+  if (!refreshClaims || isExpired(refreshClaims)) {
+    clearStorage();
+    return null;
+  }
+  return { accessToken, refreshToken, claims: decodeJwt(accessToken) };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState(loadValidToken);
+  const [session, setSession] = useState(loadSession);
 
-  // The api layer needs the token synchronously (interceptor) — keep it fed.
-  useEffect(() => {
-    setAuthToken(session?.token ?? null);
-  }, [session]);
+  const login = useCallback((accessToken: string, refreshToken: string) => {
+    const claims = decodeJwt(accessToken);
+    if (!claims) return; // a token we can't read is a token we don't store
+    localStorage.setItem(ACCESS_KEY, accessToken);
+    localStorage.setItem(REFRESH_KEY, refreshToken);
+    setAuthToken(accessToken); // feed the api layer immediately (don't wait for the effect)
+    setSession({ accessToken, refreshToken, claims });
+  }, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY);
+    clearStorage();
+    setAuthToken(null);
     setSession(null);
   }, []);
 
-  const login = useCallback((token: string) => {
-    const claims = decodeJwt(token);
-    if (!claims) return; // a token we can't read is a token we don't store
-    localStorage.setItem(STORAGE_KEY, token);
-    setSession({ token, claims });
-  }, []);
+  // Keep the api layer's access token in sync with our session.
+  useEffect(() => {
+    setAuthToken(session?.accessToken ?? null);
+  }, [session]);
 
-  // Any 401 on a protected call ends the session in one place.
+  // Wire the api layer's central handlers: 401-after-failed-refresh → logout,
+  // and the actual refresh call (reads the latest refresh token from storage).
   useEffect(() => {
     setUnauthorizedHandler(logout);
-  }, [logout]);
+    setRefreshHandler(async () => {
+      const stored = localStorage.getItem(REFRESH_KEY);
+      if (!stored) return null;
+      try {
+        const res = await refreshTokens(stored);
+        login(res.accessToken, res.refreshToken);
+        return res.accessToken;
+      } catch {
+        return null; // caller logs out
+      }
+    });
+    return () => setRefreshHandler(null);
+  }, [login, logout]);
 
   const value = useMemo<AuthState>(
-    () => ({ token: session?.token ?? null, claims: session?.claims ?? null, login, logout }),
+    () => ({ token: session?.accessToken ?? null, claims: session?.claims ?? null, login, logout }),
     [session, login, logout],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -7,5 +7,5 @@ import java.util.UUID;
  * runs. Inject it into any controller with
  * {@code @AuthenticationPrincipal PraxisPrincipal principal}.
  */
-public record PraxisPrincipal(UUID userId, UUID tenantId, String role) {
+public record PraxisPrincipal(UUID userId, UUID tenantId, String user, String role) {
 }
